@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Variables principale
 
 #ORG_ORIGEN='juan.obando@suratechcol.com.devbanca' #SP(X+1)
@@ -366,7 +368,7 @@ function get_org_name() {
         *sitviajes*) echo "SITVIAJES" ;;
         *preuat*) echo "PRE-UAT" ;;
         *uat*) echo "UAT" ;;
-        *devnequi*) echo "DEVNequi" ;;
+        *chile.autos*) echo "AUTOS" ;;
         *chile.prod*) echo "PROD CHILE" ;;
         *jean@*|*produccion*|*prod*) echo "PROD" ;;
         *nespon*) echo "NESPON" ;;
@@ -391,19 +393,13 @@ function mostrar_confirmacion() {
         *) color_code="$COLOR_PRIMARY" ;;
     esac
 
-    # Ancho fijo para el contenido (sin contar los bordes │)
-    local ancho=38
-
     # Construir contenido: ◎ OPERACION  TIPO  →  ORG
-    local texto="◎ $(printf '%-9s' "$operacion") $(printf '%-7s' "$tipo") →  $org_name"
+    local texto="◎ $(printf '%-9s' "$operacion") ${tipo}  →  $org_name"
 
-    # Calcular padding para centrar/alinear (◎ cuenta como 2 caracteres visuales)
-    local texto_len=$((${#texto} + 1))  # +1 porque ◎ ocupa 2 espacios visuales
-    local padding=$((ancho - texto_len))
-    local espacios=""
-    for ((i=0; i<padding; i++)); do
-        espacios="${espacios} "
-    done
+    # Calcular ancho dinámico basado en el texto (◎ ocupa 2 espacios visuales)
+    local texto_len=$((${#texto} + 1))
+    local ancho=$((texto_len + 1))
+    local espacios=" "
 
     # Crear borde
     local borde=""
@@ -836,15 +832,15 @@ function seleccionar_org_origen() {
         echo -e "  ${OPTION}1.${COLOR_RESET}  BUILDVIAJES   ${MUTED}juan.obando@nespon.com.buildviajes${COLOR_RESET}"
         echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
-        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVNequi  ${MUTED}juan.obando@suratech.com.devnequi${COLOR_RESET}"
-        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD NEQUI      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        echo -e "  ${OPTION}1.${COLOR_RESET}  AUTOS         ${MUTED}juan.obando@suratech.com.chile.autos${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD CHILE      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
     fi
     if [[ "$PROYECTO" != "AUTOS CL" ]]; then
         echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
         echo -e "  ${OPTION}4.${COLOR_RESET}  UAT           ${MUTED}devcb@sura.com.uat${COLOR_RESET}"
         echo -e "  ${OPTION}5.${COLOR_RESET}  PRODUCCION    ${MUTED}juan.obando@sura.com.prod${COLOR_RESET}"
         if [[ "$PROYECTO" == "BANCA COL" ]]; then
-            echo -e "  ${OPTION}6.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+            echo -e "  ${OPTION}6.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
         fi
         echo -e "  ${OPTION}8.${COLOR_RESET}  Nespon        ${MUTED}juan.obando@nespon.com${COLOR_RESET}"
     fi
@@ -879,7 +875,7 @@ function seleccionar_org_origen() {
         esac
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         case $org_opcion in
-            1) ORG_ORIGEN='juan.obando@suratech.com.devnequi' ;;
+            1) ORG_ORIGEN='juan.obando@suratech.com.chile.autos' ;;
             2) ORG_ORIGEN='juan.obando@suratech.com.chile.prod' ;;
             "") ORG_ORIGEN="" ;;
             *) ORG_ORIGEN="" ;;
@@ -904,15 +900,15 @@ function seleccionar_org_destino() {
         echo -e "  ${OPTION}1.${COLOR_RESET}  BUILDVIAJES   ${MUTED}juan.obando@nespon.com.buildviajes${COLOR_RESET}"
         echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
-        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVNequi  ${MUTED}juan.obando@suratech.com.devnequi${COLOR_RESET}"
-        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD NEQUI      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        echo -e "  ${OPTION}1.${COLOR_RESET}  AUTOS         ${MUTED}juan.obando@suratech.com.chile.autos${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD CHILE      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
     fi
     if [[ "$PROYECTO" != "AUTOS CL" ]]; then
         echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
         echo -e "  ${OPTION}4.${COLOR_RESET}  UAT           ${MUTED}devcb@sura.com.uat${COLOR_RESET}"
         echo -e "  ${OPTION}5.${COLOR_RESET}  PRODUCCION    ${MUTED}juan.obando@sura.com.prod${COLOR_RESET}"
         if [[ "$PROYECTO" == "BANCA COL" ]]; then
-            echo -e "  ${OPTION}6.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+            echo -e "  ${OPTION}6.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
         fi
         echo -e "  ${OPTION}8.${COLOR_RESET}  Nespon        ${MUTED}juan.obando@nespon.com${COLOR_RESET}"
     fi
@@ -947,7 +943,7 @@ function seleccionar_org_destino() {
         esac
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         case $org_opcion in
-            1) ORG_DESTINO='juan.obando@suratech.com.devnequi' ;;
+            1) ORG_DESTINO='juan.obando@suratech.com.chile.autos' ;;
             2) ORG_DESTINO='juan.obando@suratech.com.chile.prod' ;;
             "") ORG_DESTINO="" ;;
             *) ORG_DESTINO="" ;;
@@ -971,7 +967,7 @@ function seleccionar_org_destino_sandbox() {
         echo -e "  ${OPTION}1.${COLOR_RESET}  BUILDVIAJES   ${MUTED}juan.obando@nespon.com.buildviajes${COLOR_RESET}"
         echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
-        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVNequi  ${MUTED}juan.obando@suratech.com.devnequi${COLOR_RESET}"
+        echo -e "  ${OPTION}1.${COLOR_RESET}  AUTOS         ${MUTED}juan.obando@suratech.com.chile.autos${COLOR_RESET}"
     fi
     if [[ "$PROYECTO" != "AUTOS CL" ]]; then
         echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
@@ -1003,7 +999,7 @@ function seleccionar_org_destino_sandbox() {
         esac
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         case $org_opcion in
-            1) ORG_DESTINO='juan.obando@suratech.com.devnequi' ;;
+            1) ORG_DESTINO='juan.obando@suratech.com.chile.autos' ;;
             "") ORG_DESTINO="" ;;
             *) ORG_DESTINO="" ;;
         esac
@@ -1020,11 +1016,11 @@ function seleccionar_org_destino_produccion() {
     echo -e "  ${COLOR_RESET}"
     echo ""
     if [[ "$PROYECTO" == "AUTOS CL" ]]; then
-        echo -e "  ${OPTION}1.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        echo -e "  ${OPTION}1.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
     else
         echo -e "  ${OPTION}1.${COLOR_RESET}  PRODUCCION    ${MUTED}juan.obando@sura.com.prod${COLOR_RESET}"
         if [[ "$PROYECTO" == "BANCA COL" ]]; then
-            echo -e "  ${OPTION}2.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+            echo -e "  ${OPTION}2.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
         fi
     fi
     echo ""
@@ -2500,12 +2496,12 @@ do
                         if [ -z "$ORG_ORIGEN" ]; then
                             continue
                         fi
-                        echo "INICIA PROCESO RETRIEVE XML...\n"
+                        echo -e "INICIA PROCESO RETRIEVE XML...\n"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         sf project retrieve start --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_ORIGEN} --ignore-conflicts
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        cd "$SCRIPT_DIR"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     2) # Run test deploy XML
@@ -2541,8 +2537,8 @@ do
                                     continue
                                 fi
                                 # Confirmación
-                                local org_name=$(get_org_name "$ORG_DESTINO")
-                                mostrar_confirmacion "VALIDATE" "CORE" "$org_name" "WARNING" "Solo lectura • Sin tests"
+                                org_name=$(get_org_name "$ORG_DESTINO")
+                                mostrar_confirmacion "VALIDATE" "${MANIFEST_DIR}/${XML_COMPONENTES}" "$org_name" "WARNING" "Solo lectura • Sin tests"
                                 echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
                                 read confirmacion
 
@@ -2552,11 +2548,11 @@ do
                                     continue
                                 fi
 
-                                echo "INICIA VALIDACIÓN RÁPIDA DE METADATA CORE...\n"
+                                echo -e "INICIA VALIDACIÓN RÁPIDA DE METADATA CORE...\n"
                                 sf config set target-org=${ORG_DESTINO}
-                                cd ..
-                                local LOG_FILE="scripts/log_validated_deployment"
-                                local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                                cd "$SCRIPT_DIR"
+                                LOG_FILE="scripts/log_validated_deployment"
+                                ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
                                     echo "════════════════════════════════════════════════════════════════"
                                     echo "  CORE DEPLOYMENT LOG - VALIDATE (Quick/Dry-Run)"
@@ -2569,9 +2565,9 @@ do
                                     echo ""
                                 } > "$LOG_FILE"
                                 sf deploy metadata --dry-run --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} --ignore-conflicts 2>&1 | tee -a "$LOG_FILE"
-                                cd scripts/
+                                cd "$SCRIPT_DIR"
                                 echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
-                                echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                                echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                                 read foo
                             ;;
                             2) # Validación Exhaustiva (Producción)
@@ -2580,7 +2576,7 @@ do
                                     continue
                                 fi
                                 # Confirmación
-                                mostrar_confirmacion "VALIDATE" "CORE" "PROD" "ERROR" "Ejecutando con tests"
+                                mostrar_confirmacion "VALIDATE" "${MANIFEST_DIR}/${XML_COMPONENTES}" "PROD" "ERROR" "Ejecutando con tests"
                                 echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
                                 read confirmacion
 
@@ -2590,11 +2586,11 @@ do
                                     continue
                                 fi
 
-                                echo "INICIA VALIDACIÓN EXHAUSTIVA DE METADATA CORE...\n"
+                                echo -e "INICIA VALIDACIÓN EXHAUSTIVA DE METADATA CORE...\n"
                                 sf config set target-org=${ORG_DESTINO}
-                                cd ..
-                                local LOG_FILE="scripts/log_validated_deployment"
-                                local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                                cd "$SCRIPT_DIR"
+                                LOG_FILE="scripts/log_validated_deployment"
+                                ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
                                     echo "════════════════════════════════════════════════════════════════"
                                     echo "  CORE DEPLOYMENT LOG - VALIDATE (Exhaustive/Production)"
@@ -2607,9 +2603,9 @@ do
                                     echo ""
                                 } > "$LOG_FILE"
                                 sf project deploy validate --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} 2>&1 | tee -a "$LOG_FILE"
-                                cd scripts/
+                                cd "$SCRIPT_DIR"
                                 echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
-                                echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                                echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                                 read foo
                             ;;
                             3) # Con Clases Apex Específicas
@@ -2682,8 +2678,8 @@ do
                                 fi
 
                                 # Confirmación
-                                local org_name=$(get_org_name "$ORG_DESTINO")
-                                mostrar_confirmacion "VALIDATE" "CORE" "$org_name" "WARNING" "Con tests específicos"
+                                org_name=$(get_org_name "$ORG_DESTINO")
+                                mostrar_confirmacion "VALIDATE" "${MANIFEST_DIR}/${XML_COMPONENTES}" "$org_name" "WARNING" "Con tests específicos"
                                 echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
                                 read confirmacion
 
@@ -2693,11 +2689,11 @@ do
                                     continue
                                 fi
 
-                                echo "INICIA VALIDACIÓN CON TESTS ESPECÍFICOS...\n"
+                                echo -e "INICIA VALIDACIÓN CON TESTS ESPECÍFICOS...\n"
                                 sf config set target-org=${ORG_DESTINO}
-                                cd ..
-                                local LOG_FILE="scripts/log_validated_deployment"
-                                local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                                cd "$SCRIPT_DIR"
+                                LOG_FILE="scripts/log_validated_deployment"
+                                ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
                                     echo "════════════════════════════════════════════════════════════════"
                                     echo "  CORE DEPLOYMENT LOG - VALIDATE (Specified Tests)"
@@ -2711,9 +2707,9 @@ do
                                     echo ""
                                 } > "$LOG_FILE"
                                 sf project deploy validate --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --test-level RunSpecifiedTests --tests ${test_classes} --target-org ${ORG_DESTINO} 2>&1 | tee -a "$LOG_FILE"
-                                cd scripts/
+                                cd "$SCRIPT_DIR"
                                 echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
-                                echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                                echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                                 read foo
                             ;;
                             *)
@@ -2729,13 +2725,13 @@ do
                         fi
 
                         # Confirmación
-                        local org_name=$(get_org_name "$ORG_DESTINO")
+                        org_name=$(get_org_name "$ORG_DESTINO")
                         # Determinar mensaje según ambiente
-                        local desc_deploy="Ejecutando deploy a sandbox"
+                        desc_deploy="Ejecutando deploy a sandbox"
                         if [[ "$org_name" == "PROD" ]]; then
                             desc_deploy="Ejecutando con tests"
                         fi
-                        mostrar_confirmacion "DEPLOY" "CORE" "$org_name" "ERROR" "$desc_deploy"
+                        mostrar_confirmacion "DEPLOY" "${MANIFEST_DIR}/${XML_COMPONENTES}" "$org_name" "ERROR" "$desc_deploy"
                         echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Confirma el despliegue? (S/N):${COLOR_RESET} "
                         read confirmacion
 
@@ -2745,11 +2741,11 @@ do
                             continue
                         fi
 
-                        echo "INICIA DESPLIEGUE DE METADATA CORE...\n"
+                        echo -e "INICIA DESPLIEGUE DE METADATA CORE...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd ..
-                        local LOG_FILE="scripts/log_validated_deployment"
-                        local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                        cd "$SCRIPT_DIR"
+                        LOG_FILE="scripts/log_validated_deployment"
+                        ORG_NAME=$(get_org_name "$ORG_DESTINO")
                         {
                             echo "════════════════════════════════════════════════════════════════"
                             echo "  CORE DEPLOYMENT LOG - DEPLOY"
@@ -2762,7 +2758,7 @@ do
                             echo ""
                         } > "$LOG_FILE"
                         sf deploy metadata --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} --ignore-conflicts 2>&1 | tee -a "$LOG_FILE"
-                        cd scripts/
+                        cd "$SCRIPT_DIR"
                         echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
 
                         # Si es la org de tracking (SITBANCA/SITVIAJES), ofrecer guardar en tracking
@@ -2775,7 +2771,7 @@ do
                             fi
                         fi
 
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     4) # Run validate destructive XML
@@ -2783,12 +2779,12 @@ do
                         if [ -z "$ORG_DESTINO" ]; then
                             continue
                         fi
-                        echo "INICIA VALIDATE DESTRUCTIVE XML...\n"
+                        echo -e "INICIA VALIDATE DESTRUCTIVE XML...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         sf deploy metadata --metadata-dir itemToDelete/ --target-org ${ORG_DESTINO} --wait 10 --dry-run #Valida antes de borrar
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        cd "$SCRIPT_DIR"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     5) # Run destructive XML
@@ -2796,12 +2792,12 @@ do
                         if [ -z "$ORG_DESTINO" ]; then
                             continue
                         fi
-                        echo "INICIA DESTRUCTIVE XML...\n"
+                        echo -e "INICIA DESTRUCTIVE XML...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         sf deploy metadata --metadata-dir itemToDelete/ --target-org ${ORG_DESTINO} --wait 10 #Valida antes de borrar
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        cd "$SCRIPT_DIR"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     *)
@@ -2826,12 +2822,12 @@ do
                         if [ -z "$ORG_ORIGEN" ]; then
                             continue
                         fi
-                        echo "INICIA PROCESO RETRIEVE YAML...\n"
+                        echo -e "INICIA PROCESO RETRIEVE YAML...\n"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         vlocity -sfdx.username ${ORG_ORIGEN} -job ${MANIFEST_DIR}/${YAML_COMPONENTES} packExport
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        cd "$SCRIPT_DIR"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     2) # Deploy YAML
@@ -2841,8 +2837,8 @@ do
                         fi
 
                         # Confirmación
-                        local org_name=$(get_org_name "$ORG_DESTINO")
-                        mostrar_confirmacion "DEPLOY" "VLOCITY" "$org_name" "ERROR" "Ejecutando deploy"
+                        org_name=$(get_org_name "$ORG_DESTINO")
+                        mostrar_confirmacion "DEPLOY" "${MANIFEST_DIR}/${YAML_COMPONENTES}" "$org_name" "ERROR" "Ejecutando deploy"
                         echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Confirma el despliegue? (S/N):${COLOR_RESET} "
                         read confirmacion
 
@@ -2852,11 +2848,11 @@ do
                             continue
                         fi
 
-                        echo "INICIA DESPLIEGUE DE METADATA VLOCITY...\n"
+                        echo -e "INICIA DESPLIEGUE DE METADATA VLOCITY...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         vlocity -sfdx.username ${ORG_DESTINO} -job ${MANIFEST_DIR}/${YAML_COMPONENTES} packDeploy
-                        cd scripts/
+                        cd "$SCRIPT_DIR"
 
                         # Si es la org de tracking (SITBANCA/SITVIAJES), ofrecer guardar en tracking
                         if [[ "$ORG_DESTINO" = "$ORG_TRACKING_TRIGGER" ]]; then
@@ -2868,7 +2864,7 @@ do
                             fi
                         fi
 
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     *)
@@ -2893,14 +2889,14 @@ do
                         if [ -z "$ORG_ORIGEN" ]; then
                             continue
                         fi
-                        echo "INICIA PROCESO EXPORTAR LISTA COMPONENTES CORE\n"
+                        echo -e "INICIA PROCESO EXPORTAR LISTA COMPONENTES CORE\n"
                         echo -e "${COLOR_SUCCESS} En la carpeta SCRIPTS encontrara el archivo allMetadataCore.xml con el listado de todos los componentes...${COLOR_RESET}"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         sfdx force:source:manifest:create --from-org ${ORG_ORIGEN} -n allMetadataCore -d scripts
                         sf config set target-org=${ORG_ORIGEN}
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        cd "$SCRIPT_DIR"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     2) # Export objetos CORE en CSV
@@ -2908,14 +2904,14 @@ do
                         if [ -z "$ORG_ORIGEN" ]; then
                             continue
                         fi
-                        echo "INICIA PROCESO EXPORTAR LISTA OBJETOS CORE EN .CSV\n"
+                        echo -e "INICIA PROCESO EXPORTAR LISTA OBJETOS CORE EN .CSV\n"
                         echo -e "${COLOR_SUCCESS} En la raíz encontrará el archivo allobjects.txt con todos los objetos...${COLOR_RESET}"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         sfdx force:schema:sobject:list -o ${ORG_ORIGEN} > allobjects.txt
                         sf config set target-org=${ORG_ORIGEN}
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        cd "$SCRIPT_DIR"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     3) # Export componentes VLOCITY
@@ -2923,14 +2919,14 @@ do
                         if [ -z "$ORG_ORIGEN" ]; then
                             continue
                         fi
-                        echo "INICIA PROCESO EXPORTAR LISTA COMPONENTES VLOCITY\n"
+                        echo -e "INICIA PROCESO EXPORTAR LISTA COMPONENTES VLOCITY\n"
                         echo -e "${COLOR_SUCCESS} En la raíz encontrará el archivo output.txt con todos los componentes...${COLOR_RESET}"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd ..
+                        cd "$SCRIPT_DIR"
                         vlocity -sfdx.username ${ORG_ORIGEN} packGetAllAvailableExports --nojob > output.txt
                         sf config set target-org=${ORG_ORIGEN}
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        cd "$SCRIPT_DIR"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     *)
@@ -2959,7 +2955,7 @@ do
                         sf org display --target-org $ORG_DESTINO --verbose --json > authE$ORG_DESTINO.json
                         echo -e "${COLOR_SUCCESS}Archivo de autenticación generado en la carpeta SCRIPTS: authE$ORG_DESTINO.json${COLOR_RESET}"
                         echo -e "${COLOR_SUCCESS}Recuerde utilizar este comando para poder acceder al ambiente: sf force auth sfdxurl store --sfdx-url-file [authFile.json]${COLOR_RESET}"
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     2) # Abrir ORG
@@ -2967,12 +2963,11 @@ do
                         if [ -z "$ORG_DESTINO" ]; then
                             continue
                         fi
-                        echo "ABRIENDO ORG...\n"
-                        sf config set target-org=${ORG_DESTINO}
-                        cd ..
-                        sfdx force:org:open --target-org ${ORG_DESTINO}
-                        cd scripts/
-                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        echo -e "ABRIENDO ORG...\n"
+                        PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+                        sf config set target-org=${ORG_DESTINO} --global
+                        (cd "$PROJECT_ROOT" && sfdx force:org:open --target-org ${ORG_DESTINO})
+                        echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
                     *)
@@ -3136,12 +3131,12 @@ done
 
 
 #11) 
-#    echo "INICIANDO ROLLBACK DE ÚLTIMOS CAMBIOS...\n"
+#    echo -e "INICIANDO ROLLBACK DE ÚLTIMOS CAMBIOS...\n"
 #    cd ..
 #    git reset --hard HEAD~1  # Reviértelo al commit anterior
 #    git push --force  # Empuja el cambio al repositorio remoto
 #    cd scripts/
-#    echo "* ENTER PARA VOLVER AL MENÚ * \n"
+#    echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
 #    read foo
 #;;
 
