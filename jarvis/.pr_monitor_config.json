@@ -1,0 +1,14 @@
+{
+  "email_to": "juan.obando@nespon.com",
+  "email_from": "juan.obando@nespon.com",
+  "smtp_server": "smtp.office365.com",
+  "smtp_port": 587,
+  "smtp_user": "juan.obando@nespon.com",
+  "smtp_password": "wxlcdxfnzdrzrrdy",
+  "target_branches": [
+    "uat",
+    "main"
+  ],
+  "active": true,
+  "teams_webhook_url": "https://nespon.webhook.office.com/webhookb2/2c385c95-f623-4c50-aa9d-cbac39f5a674@b89de41b-7880-450d-aca7-639ececaa174/IncomingWebhook/4dda2565d3f8495a9848d14b54faaa27/e1c30447-9846-4f3a-b369-40d06dc0acf6/V2mIQ-OGAvHgFc3rwjNRy9r7TjCUO2rvBRKT4XPUjXSp81"
+}

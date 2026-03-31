@@ -1,0 +1,3193 @@
+#!/bin/bash
+
+# Variables principale
+
+#ORG_ORIGEN='juan.obando@suratechcol.com.devbanca' #SP(X+1)
+#ORG_ORIGEN='juan.obando@suratechcol.com.sitbanca' #SP(X)
+#ORG_ORIGEN='juan.obando@nespon.com' #Nespon account
+#ORG_ORIGEN='juan.obando@nespon.com.buildviajes' #SP(X+1)
+#ORG_ORIGEN='devcb@sura.com.uat'
+#ORG_ORIGEN='juan.obando@sura.com.prod' #PROD
+
+# Variables de proyecto (se configuran al seleccionar BANCA o VIAJES)
+PROYECTO=""
+MANIFEST_DIR=""
+XML_COMPONENTES=""
+YAML_COMPONENTES=""
+ORG_TRACKING_TRIGGER=""
+
+function configurar_banca() {
+    PROYECTO="BANCA COL"
+    MANIFEST_DIR="manifest/Salud"
+    XML_COMPONENTES="package.xml"
+    YAML_COMPONENTES="package.yaml"
+    ORG_TRACKING_TRIGGER="juan.obando@suratechcol.com.sitbanca"
+}
+
+function configurar_viajes() {
+    PROYECTO="VIAJES COL"
+    MANIFEST_DIR="manifest/Viajes"
+    XML_COMPONENTES="package-viajes.xml"
+    YAML_COMPONENTES="package-viajes.yaml"
+    ORG_TRACKING_TRIGGER="juan.obando@nespon.com.sitviajes"
+}
+
+function configurar_banca_nequi() {
+    PROYECTO="AUTOS CL"
+    MANIFEST_DIR="manifest/Autos"
+    XML_COMPONENTES="package.xml"
+    YAML_COMPONENTES="package.yaml"
+    ORG_TRACKING_TRIGGER=""
+}
+
+
+# ============================================================================
+# PALETA DE COLORES - Estilo Moderno
+# ============================================================================
+
+COLOR_PRIMARY="\033[38;5;75m"      # Azul principal
+COLOR_ACCENT="\033[38;5;117m"      # Cyan accent
+COLOR_SUCCESS="\033[38;5;114m"     # Verde suave
+COLOR_WARNING="\033[38;5;180m"     # Naranja suave (estilo Claude)
+COLOR_ERROR="\033[38;5;203m"       # Rojo coral
+COLOR_INFO="\033[38;5;153m"        # Cyan claro
+COLOR_TEXT="\033[38;5;252m"        # Gris claro
+COLOR_MUTED="\033[38;5;245m"       # Gris medio
+COLOR_RESET="\033[0m"              # Reset
+
+# ============================================================================
+# ESTILOS DE TEXTO
+# ============================================================================
+
+BOLD="\033[1m"                     # Negrita
+DIM="\033[2m"                      # Atenuado
+UNDERLINE="\033[4m"                # Subrayado
+
+# Combinaciones frecuentes
+TITLE="${BOLD}${COLOR_PRIMARY}"
+OPTION="${COLOR_ACCENT}"
+MUTED="${DIM}${COLOR_MUTED}"
+SUCCESS="${BOLD}${COLOR_SUCCESS}"
+ERROR="${BOLD}${COLOR_ERROR}"
+WARNING="${COLOR_WARNING}"
+
+# Compatibilidad con código existente
+COLOR_BOLD="${BOLD}"
+
+# Función para centrar texto
+
+function center_text() {
+    local term_width=$(tput cols)
+    local padding=$(printf '%*s' $(( (term_width - ${#1}) / 2 )) "")
+    echo "$padding$1"
+}
+
+# ============================================================================
+# FUNCIÓN: Verificar componentes híbridos en los manifests de deploy
+# Compara los manifests de deploy contra las listas de componentes híbridos
+# y muestra una alerta si encuentra coincidencias
+# ============================================================================
+function verificar_hibridos() {
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local PACKAGE_XML="$PROJECT_ROOT/${MANIFEST_DIR}/${XML_COMPONENTES}"
+    local PACKAGE_YAML="$PROJECT_ROOT/${MANIFEST_DIR}/${YAML_COMPONENTES}"
+    local HIBRIDOS_XML="$SCRIPT_DIR/package_hibridos.xml"
+    local HIBRIDOS_YAML="$SCRIPT_DIR/package_hibridos.yaml"
+
+    # Verificar que existan los archivos de híbridos
+    if [ ! -f "$HIBRIDOS_XML" ] && [ ! -f "$HIBRIDOS_YAML" ]; then
+        return 0
+    fi
+
+    local hibridos_core=()
+    local hibridos_vlocity=()
+
+    # --- CORE: Comparar XML (con tipo de metadato) ---
+    if [ -f "$HIBRIDOS_XML" ] && [ -f "$PACKAGE_XML" ]; then
+        # Extraer pares "TipoMetadato|NombreMiembro" del XML de híbridos
+        # El <name> viene después de los <members>, así que se procesa por bloques <types>
+        while IFS='|' read -r tipo member; do
+            member=$(echo "$member" | xargs)
+            if [ -n "$member" ] && grep -q "<members>$member</members>" "$PACKAGE_XML"; then
+                hibridos_core+=("[${tipo}] ${member}")
+            fi
+        done < <(perl -0777 -ne '
+            while (/<types>(.*?)<\/types>/gs) {
+                my $block = $1;
+                my ($name) = $block =~ /<name>(.*?)<\/name>/;
+                while ($block =~ /<members>(.*?)<\/members>/g) {
+                    print "$name|$1\n";
+                }
+            }
+        ' "$HIBRIDOS_XML")
+    fi
+
+    # --- VLOCITY: Comparar YAML ---
+    if [ -f "$HIBRIDOS_YAML" ] && [ -f "$PACKAGE_YAML" ]; then
+        local deploy_list
+        deploy_list=$(grep -oE '  - [^ ]+/.+' "$PACKAGE_YAML" | sed 's/^  - //' | sed 's/[[:space:]]*#.*$//' | sed 's/[[:space:]]*$//')
+        local hibridos_list
+        hibridos_list=$(grep -oE '  - [^ ]+/.+' "$HIBRIDOS_YAML" | sed 's/^  - //' | sed 's/[[:space:]]*#.*$//' | sed 's/[[:space:]]*$//')
+
+        while IFS= read -r item; do
+            if [ -n "$item" ] && grep -qx "$item" <<< "$deploy_list"; then
+                hibridos_vlocity+=("$item")
+            fi
+        done <<< "$hibridos_list"
+    fi
+
+    local total=$(( ${#hibridos_core[@]} + ${#hibridos_vlocity[@]} ))
+
+    if [ $total -gt 0 ]; then
+        echo ""
+        echo -e "  ${WARNING}╭──────────────────────────────────────────────────╮${COLOR_RESET}"
+        echo -e "  ${WARNING}│    ALERTA: Componentes híbridos detectados       │${COLOR_RESET}"
+        echo -e "  ${WARNING}╰──────────────────────────────────────────────────╯${COLOR_RESET}"
+        echo ""
+
+        if [ ${#hibridos_core[@]} -gt 0 ]; then
+            echo -e "  ${COLOR_ACCENT}CORE (${#hibridos_core[@]}):${COLOR_RESET}"
+            local prev_core_type=""
+            local sorted_core
+            sorted_core=$(printf '%s\n' "${hibridos_core[@]}" | sort)
+            while IFS= read -r h; do
+                local ctype="${h%%]*}"
+                ctype="${ctype#\[}"
+                if [ "$ctype" != "$prev_core_type" ]; then
+                    [ -n "$prev_core_type" ] && echo ""
+                    echo -e "    ${COLOR_INFO}${ctype}:${COLOR_RESET}"
+                    prev_core_type="$ctype"
+                fi
+                local cname="${h#*] }"
+                echo -e "      ${COLOR_WARNING}→${COLOR_RESET} $cname"
+            done <<< "$sorted_core"
+            echo ""
+        fi
+
+        if [ ${#hibridos_vlocity[@]} -gt 0 ]; then
+            echo -e "  ${COLOR_ACCENT}VLOCITY (${#hibridos_vlocity[@]}):${COLOR_RESET}"
+            local prev_type=""
+            local sorted_vlocity
+            sorted_vlocity=$(printf '%s\n' "${hibridos_vlocity[@]}" | sort)
+            while IFS= read -r h; do
+                local vtype="${h%%/*}"
+                if [ "$vtype" != "$prev_type" ]; then
+                    [ -n "$prev_type" ] && echo ""
+                    echo -e "    ${COLOR_INFO}${vtype}:${COLOR_RESET}"
+                    prev_type="$vtype"
+                fi
+                local vname="${h#*/}"
+                echo -e "      ${COLOR_WARNING}→${COLOR_RESET} $vname"
+            done <<< "$sorted_vlocity"
+            echo ""
+        fi
+
+        echo -e "  ${COLOR_ERROR}Total híbridos encontrados: ${total}${COLOR_RESET}"
+        echo -e "  ${MUTED}Verifique estos componentes antes de continuar con el deploy${COLOR_RESET}"
+        echo ""
+    else
+        echo -e "\n  ${COLOR_SUCCESS}✓ No se detectaron componentes híbridos${COLOR_RESET}\n"
+    fi
+}
+
+# ============================================================================
+# FUNCIÓN: Verificar componentes híbridos por PR ID
+# Obtiene los archivos modificados del PR y los compara contra las listas
+# de componentes híbridos
+# ============================================================================
+function verificar_hibridos_por_pr() {
+    local pr_id="$1"
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local HIBRIDOS_XML="$SCRIPT_DIR/package_hibridos.xml"
+    local HIBRIDOS_YAML="$SCRIPT_DIR/package_hibridos.yaml"
+
+    if [ ! -f "$HIBRIDOS_XML" ] && [ ! -f "$HIBRIDOS_YAML" ]; then
+        return 0
+    fi
+
+    # Obtener info del PR (ramas origen y destino)
+    echo -e "  ${COLOR_MUTED}Verificando componentes híbridos del PR #${pr_id}...${COLOR_RESET}"
+    local pr_json
+    pr_json=$(az repos pr show --id "$pr_id" --output json 2>/dev/null)
+
+    if [ -z "$pr_json" ]; then
+        echo -e "  ${COLOR_WARNING}No se pudo obtener info del PR #${pr_id}${COLOR_RESET}"
+        return 1
+    fi
+
+    local source_branch
+    source_branch=$(echo "$pr_json" | python3 -c "import sys,json; print(json.load(sys.stdin)['sourceRefName'].replace('refs/heads/',''))" 2>/dev/null)
+    local target_branch
+    target_branch=$(echo "$pr_json" | python3 -c "import sys,json; print(json.load(sys.stdin)['targetRefName'].replace('refs/heads/',''))" 2>/dev/null)
+
+    # Obtener archivos modificados del PR (las ramas ya fueron actualizadas por el script Python)
+    local changed_files
+    changed_files=$(git diff --name-only "origin/${target_branch}...origin/${source_branch}" 2>/dev/null)
+
+    if [ -z "$changed_files" ]; then
+        echo -e "\n  ${COLOR_SUCCESS}✓ No se detectaron componentes híbridos en el PR${COLOR_RESET}\n"
+        return 0
+    fi
+
+    local hibridos_core=()
+    local hibridos_vlocity=()
+
+    # --- CORE: Comparar archivos del PR contra híbridos XML ---
+    if [ -f "$HIBRIDOS_XML" ]; then
+        # Obtener pares tipo|miembro del XML de híbridos
+        local hybrid_members
+        hybrid_members=$(perl -0777 -ne '
+            while (/<types>(.*?)<\/types>/gs) {
+                my $block = $1;
+                my ($name) = $block =~ /<name>(.*?)<\/name>/;
+                while ($block =~ /<members>(.*?)<\/members>/g) {
+                    print "$name|$1\n";
+                }
+            }
+        ' "$HIBRIDOS_XML")
+
+        # Para cada miembro híbrido, verificar si está en los archivos del PR
+        while IFS='|' read -r tipo member; do
+            member=$(echo "$member" | xargs)
+            [ -z "$member" ] && continue
+
+            local found=false
+
+            if [[ "$member" == *.* ]]; then
+                # Nombre con punto (ej: Object.Field, Object.RecordType)
+                local obj_name="${member%%.*}"
+                local field_name="${member#*.}"
+                while IFS= read -r file; do
+                    if [[ "$file" == *"$obj_name"* ]] && [[ "$file" == *"$field_name"* ]]; then
+                        found=true
+                        break
+                    fi
+                done <<< "$changed_files"
+            else
+                # Nombre simple - buscar en los archivos
+                if echo "$changed_files" | grep -q "$member"; then
+                    found=true
+                fi
+            fi
+
+            if [ "$found" = true ]; then
+                hibridos_core+=("[${tipo}] ${member}")
+            fi
+        done <<< "$hybrid_members"
+    fi
+
+    # --- VLOCITY: Comparar archivos del PR contra híbridos YAML ---
+    if [ -f "$HIBRIDOS_YAML" ]; then
+        local hibridos_yaml_list
+        hibridos_yaml_list=$(grep -oE '  - [^ ]+/.+' "$HIBRIDOS_YAML" | sed 's/^  - //' | sed 's/[[:space:]]*#.*$//' | sed 's/[[:space:]]*$//')
+
+        # Extraer componentes Vlocity únicos de los archivos del PR
+        local checked_vlocity=""
+        while IFS= read -r file; do
+            [[ "$file" != vlocity/* ]] && continue
+            # Extraer Tipo/Nombre usando cut (compatible con bash 3)
+            local vtype=$(echo "$file" | cut -d'/' -f2)
+            local vname=$(echo "$file" | cut -d'/' -f3)
+            local vref="${vtype}/${vname}"
+
+            # Evitar duplicados
+            if ! echo "$checked_vlocity" | grep -qx "$vref"; then
+                checked_vlocity="${checked_vlocity}${vref}
+"
+                if echo "$hibridos_yaml_list" | grep -qx "$vref"; then
+                    hibridos_vlocity+=("$vref")
+                fi
+            fi
+        done <<< "$changed_files"
+    fi
+
+    # Mostrar resultados
+    local total=$(( ${#hibridos_core[@]} + ${#hibridos_vlocity[@]} ))
+
+    if [ $total -gt 0 ]; then
+        echo ""
+        echo -e "  ${WARNING}╭──────────────────────────────────────────────────╮${COLOR_RESET}"
+        echo -e "  ${WARNING}│    ALERTA: Componentes híbridos detectados       │${COLOR_RESET}"
+        echo -e "  ${WARNING}╰──────────────────────────────────────────────────╯${COLOR_RESET}"
+        echo ""
+
+        if [ ${#hibridos_core[@]} -gt 0 ]; then
+            echo -e "  ${COLOR_ACCENT}CORE (${#hibridos_core[@]}):${COLOR_RESET}"
+            local prev_core_type=""
+            local sorted_core
+            sorted_core=$(printf '%s\n' "${hibridos_core[@]}" | sort)
+            while IFS= read -r h; do
+                local ctype="${h%%]*}"
+                ctype="${ctype#\[}"
+                if [ "$ctype" != "$prev_core_type" ]; then
+                    [ -n "$prev_core_type" ] && echo ""
+                    echo -e "    ${COLOR_INFO}${ctype}:${COLOR_RESET}"
+                    prev_core_type="$ctype"
+                fi
+                local cname="${h#*] }"
+                echo -e "      ${COLOR_WARNING}→${COLOR_RESET} $cname"
+            done <<< "$sorted_core"
+            echo ""
+        fi
+
+        if [ ${#hibridos_vlocity[@]} -gt 0 ]; then
+            echo -e "  ${COLOR_ACCENT}VLOCITY (${#hibridos_vlocity[@]}):${COLOR_RESET}"
+            local prev_type=""
+            local sorted_vlocity
+            sorted_vlocity=$(printf '%s\n' "${hibridos_vlocity[@]}" | sort)
+            while IFS= read -r h; do
+                local vtype="${h%%/*}"
+                if [ "$vtype" != "$prev_type" ]; then
+                    [ -n "$prev_type" ] && echo ""
+                    echo -e "    ${COLOR_INFO}${vtype}:${COLOR_RESET}"
+                    prev_type="$vtype"
+                fi
+                local vname="${h#*/}"
+                echo -e "      ${COLOR_WARNING}→${COLOR_RESET} $vname"
+            done <<< "$sorted_vlocity"
+            echo ""
+        fi
+
+        echo -e "  ${COLOR_ERROR}Total híbridos encontrados: ${total}${COLOR_RESET}"
+        echo -e "  ${MUTED}Verifique estos componentes antes de continuar con el deploy${COLOR_RESET}"
+        echo ""
+    else
+        echo -e "\n  ${COLOR_SUCCESS}✓ No se detectaron componentes híbridos en el PR${COLOR_RESET}\n"
+    fi
+}
+
+# Función para obtener nombre corto de la org
+function get_org_name() {
+    local org="$1"
+    case "$org" in
+        *devbanca*) echo "DEVBANCA" ;;
+        *sitbanca*) echo "SITBANCA" ;;
+        *buildviajes*) echo "BUILDVIAJES" ;;
+        *sitviajes*) echo "SITVIAJES" ;;
+        *preuat*) echo "PRE-UAT" ;;
+        *uat*) echo "UAT" ;;
+        *devnequi*) echo "DEVNequi" ;;
+        *chile.prod*) echo "PROD CHILE" ;;
+        *jean@*|*produccion*|*prod*) echo "PROD" ;;
+        *nespon*) echo "NESPON" ;;
+        *) echo "ORG" ;;
+    esac
+}
+
+# Función para mostrar cuadro de confirmación dinámico
+function mostrar_confirmacion() {
+    local operacion="$1"   # VALIDATE, DEPLOY, RETRIEVE, DESTRUCTIVE
+    local tipo="$2"        # CORE, VLOCITY
+    local org_name="$3"    # DEVBANCA, SITBANCA, etc.
+    local color_name="$4"  # WARNING, ERROR, SUCCESS
+    local descripcion="$5" # Descripción corta
+
+    # Obtener el código de color según el nombre
+    local color_code=""
+    case "$color_name" in
+        WARNING) color_code="$WARNING" ;;
+        ERROR) color_code="$ERROR" ;;
+        SUCCESS) color_code="$SUCCESS" ;;
+        *) color_code="$COLOR_PRIMARY" ;;
+    esac
+
+    # Ancho fijo para el contenido (sin contar los bordes │)
+    local ancho=38
+
+    # Construir contenido: ◎ OPERACION  TIPO  →  ORG
+    local texto="◎ $(printf '%-9s' "$operacion") $(printf '%-7s' "$tipo") →  $org_name"
+
+    # Calcular padding para centrar/alinear (◎ cuenta como 2 caracteres visuales)
+    local texto_len=$((${#texto} + 1))  # +1 porque ◎ ocupa 2 espacios visuales
+    local padding=$((ancho - texto_len))
+    local espacios=""
+    for ((i=0; i<padding; i++)); do
+        espacios="${espacios} "
+    done
+
+    # Crear borde
+    local borde=""
+    for ((i=0; i<ancho; i++)); do
+        borde="${borde}─"
+    done
+
+    echo ""
+    echo -e "  ${color_code}┌${borde}┐${COLOR_RESET}"
+    echo -e "  ${color_code}│${COLOR_RESET} ${texto}${espacios}${color_code}│${COLOR_RESET}"
+    echo -e "  ${color_code}└${borde}┘${COLOR_RESET}"
+    echo -e "  ${MUTED}${descripcion}${COLOR_RESET}"
+    echo ""
+}
+
+# ============================================================================
+# FUNCIONES DE TRACKING DE COMPONENTES
+# ============================================================================
+
+# Org de tracking (Nespon)
+ORG_TRACKING='juan.obando@nespon.com'
+URL_BASE_PR='https://dev.azure.com/SuratechDevOpsColombia/Suratech%20Colombia/_git/suratech-salesforce-app/pullrequest/'
+
+# Variable global para guardar el PR ID del tracking
+ULTIMO_PR_ID=""
+
+# Función para aprobar y completar PR en Azure DevOps
+function aprobar_completar_pr_azure() {
+    local pr_id="$1"
+
+    if [ -z "$pr_id" ]; then
+        echo -e "${COLOR_WARNING}No hay PR ID disponible.${COLOR_RESET}"
+        return 1
+    fi
+
+    echo -e "\n${COLOR_INFO}${COLOR_BOLD}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║              Azure DevOps - Gestión de PR                 ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+
+    echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea aprobar y completar el PR #${pr_id} en Azure? (S/N):${COLOR_RESET} "
+    read aprobar_pr
+
+    if [[ ! "$aprobar_pr" =~ ^[Ss]$ ]]; then
+        echo -e "${COLOR_MUTED}Operación de PR omitida.${COLOR_RESET}"
+        return 0
+    fi
+
+    # Verificar que az CLI está instalado
+    if ! command -v az &> /dev/null; then
+        echo -e "${COLOR_ERROR}Error: Azure CLI no está instalado.${COLOR_RESET}"
+        echo -e "${COLOR_MUTED}Instale con: brew install azure-cli && az extension add --name azure-devops${COLOR_RESET}"
+        return 1
+    fi
+
+    # Verificar estado del PR antes de continuar
+    local pr_status=$(az repos pr show --id "$pr_id" --query "status" -o tsv 2>/dev/null)
+    if [[ "$pr_status" == "completed" ]]; then
+        echo -e "${COLOR_WARNING}  El PR #${pr_id} ya fue completado anteriormente.${COLOR_RESET}"
+        echo -e "${COLOR_MUTED}  No es necesario aprobarlo/completarlo nuevamente.${COLOR_RESET}"
+        return 0
+    elif [[ "$pr_status" == "abandoned" ]]; then
+        echo -e "${COLOR_ERROR}  El PR #${pr_id} fue abandonado.${COLOR_RESET}"
+        return 1
+    fi
+
+    # Obtener fecha y hora de Bogotá (UTC-5)
+    local fecha_bogota=$(TZ='America/Bogota' date '+%Y-%m-%d %H:%M:%S')
+    local comentario="✅ **PR completado via DevOps CLI Tool (Proceso Automatizado)**
+
+📅 Fecha: ${fecha_bogota} (Bogotá, Colombia)
+🔧 Acción: Deploy exitoso a SITBANCA + Tracking registrado
+👤 Ejecutado por: juan.obando@nespon.com"
+
+    # Agregar comentario al PR
+    echo -e "\n${COLOR_INFO}Agregando comentario al PR #${pr_id}...${COLOR_RESET}"
+    az repos pr update --id "$pr_id" --description "$(az repos pr show --id $pr_id --query description -o tsv 2>/dev/null)
+
+---
+${comentario}" --output none 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo -e "${COLOR_SUCCESS}  ✓ Comentario agregado al PR #${pr_id}${COLOR_RESET}"
+    else
+        echo -e "${COLOR_WARNING}  ⚠ No se pudo agregar comentario (continuando...)${COLOR_RESET}"
+    fi
+
+    # Aprobar el PR
+    echo -e "${COLOR_INFO}Aprobando PR #${pr_id}...${COLOR_RESET}"
+    az repos pr set-vote --id "$pr_id" --vote approve --output none 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo -e "${COLOR_SUCCESS}  ✓ PR #${pr_id} aprobado exitosamente${COLOR_RESET}"
+    else
+        echo -e "${COLOR_ERROR}  ✗ Error al aprobar el PR #${pr_id}${COLOR_RESET}"
+        echo -e "${COLOR_MUTED}  Verifique que está autenticado: az login${COLOR_RESET}"
+        return 1
+    fi
+
+    # Completar el PR
+    echo -e "${COLOR_INFO}Completando PR #${pr_id}...${COLOR_RESET}"
+    az repos pr update --id "$pr_id" --status completed --output none 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo -e "${COLOR_SUCCESS}  ✓ PR #${pr_id} completado exitosamente${COLOR_RESET}"
+    else
+        echo -e "${COLOR_ERROR}  ✗ Error al completar el PR #${pr_id}${COLOR_RESET}"
+        echo -e "${COLOR_MUTED}  El PR puede requerir más aprobaciones o tener políticas pendientes${COLOR_RESET}"
+        return 1
+    fi
+
+    echo -e "\n${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║              PR Aprobado y Completado ✓                   ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+
+    # Obtener y abrir Work Items asociados al PR
+    echo -e "\n${COLOR_INFO}Buscando Work Items asociados al PR #${pr_id}...${COLOR_RESET}"
+    local work_items=$(az repos pr work-item list --id "$pr_id" --query "[].id" -o tsv 2>/dev/null)
+
+    if [ -n "$work_items" ]; then
+        local count=0
+        while IFS= read -r wi_id; do
+            if [ -n "$wi_id" ]; then
+                ((count++))
+                local wi_url="https://dev.azure.com/SuratechDevOpsColombia/Suratech%20Colombia/_workitems/edit/${wi_id}"
+                echo -e "${COLOR_SUCCESS}  ✓ Abriendo Work Item #${wi_id}...${COLOR_RESET}"
+                open "$wi_url" 2>/dev/null
+                sleep 0.5  # Pequeña pausa entre cada apertura
+            fi
+        done <<< "$work_items"
+        echo -e "${COLOR_INFO}  Total: ${count} Work Item(s) abiertos en el navegador${COLOR_RESET}"
+        echo -e "${COLOR_WARNING}  No olvide cambiar el estado a: ${COLOR_BOLD}Disponible para pruebas aliado${COLOR_RESET}"
+    else
+        echo -e "${COLOR_MUTED}  No se encontraron Work Items asociados al PR${COLOR_RESET}"
+    fi
+
+    return 0
+}
+
+# Función para guardar componentes en el sistema de tracking
+function guardar_tracking_componentes() {
+    local manifest_file="$1"
+    local tipo_componente="$2"  # CORE o VLOCITY
+
+    echo -e "\n${COLOR_SUCCESS}${COLOR_BOLD}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║           Sistema de Tracking de Componentes              ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+
+    echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea guardar los componentes en el sistema de Tracking? (S/N):${COLOR_RESET} "
+    read guardar_tracking
+
+    if [[ ! "$guardar_tracking" =~ ^[Ss]$ ]]; then
+        echo -e "${COLOR_MUTED}Tracking omitido.${COLOR_RESET}"
+        return 0
+    fi
+
+    # Solicitar datos comunes para todos los registros
+    echo -e "\n${COLOR_INFO}Ingrese los datos para el tracking:${COLOR_RESET}\n"
+
+    # Sprint
+    echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Número de Sprint (ej: SP22):${COLOR_RESET} "
+    read sprint_numero
+    if [ -z "$sprint_numero" ]; then
+        echo -e "${COLOR_WARNING}Sprint no ingresado. Tracking cancelado.${COLOR_RESET}"
+        return 1
+    fi
+
+    # HU
+    echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Número de HU (ej: 31888):${COLOR_RESET} "
+    read hu_numero
+    if [ -z "$hu_numero" ]; then
+        echo -e "${COLOR_WARNING}HU no ingresada. Tracking cancelado.${COLOR_RESET}"
+        return 1
+    fi
+
+    # PR ID
+    echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}ID del Pull Request (ej: 10750):${COLOR_RESET} "
+    read pr_id
+    if [ -z "$pr_id" ]; then
+        echo -e "${COLOR_WARNING}PR ID no ingresado. Tracking cancelado.${COLOR_RESET}"
+        return 1
+    fi
+
+    # Guardar PR ID en variable global para uso posterior (Azure DevOps)
+    ULTIMO_PR_ID="$pr_id"
+
+    local url_pr="${URL_BASE_PR}${pr_id}"
+
+    # Mostrar resumen antes de procesar
+    echo -e "\n${COLOR_INFO}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║                    Resumen de Tracking                    ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  Proyecto:        ${COLOR_ACCENT}SURA Banca${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  Tipo Componente: ${COLOR_ACCENT}${tipo_componente}${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  Sprint:          ${COLOR_ACCENT}${sprint_numero}${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  HU:              ${COLOR_ACCENT}${hu_numero}${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  URL PR:          ${COLOR_ACCENT}${url_pr}${COLOR_RESET}"
+
+    # Parsear el XML y crear registros
+    echo -e "\n${COLOR_INFO}Procesando componentes del manifest...${COLOR_RESET}\n"
+
+    # Obtener la ruta base del proyecto
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    local full_manifest_path="${PROJECT_ROOT}/${manifest_file}"
+
+    # Verificar que el archivo existe
+    if [ ! -f "$full_manifest_path" ]; then
+        echo -e "${COLOR_ERROR}Error: No se encontró el archivo ${full_manifest_path}${COLOR_RESET}"
+        return 1
+    fi
+
+    # Parsear el XML y extraer componentes
+    local componentes_creados=0
+    local componentes_fallidos=0
+
+    # Guardar componentes en un archivo temporal para evitar subshell
+    local temp_file=$(mktemp)
+
+    # Extraer todos los bloques types con sus members y name usando awk
+    awk '
+    /<types>/ { in_block=1; members=""; name="" }
+    /<members>/ && in_block {
+        gsub(/.*<members>/, "");
+        gsub(/<\/members>.*/, "");
+        gsub(/^[ \t]+|[ \t]+$/, "");
+        if (members != "") members = members "|";
+        members = members $0;
+    }
+    /<name>/ && in_block {
+        gsub(/.*<name>/, "");
+        gsub(/<\/name>.*/, "");
+        gsub(/^[ \t]+|[ \t]+$/, "");
+        name = $0;
+    }
+    /<\/types>/ && in_block {
+        if (name != "" && members != "") {
+            n = split(members, arr, "|");
+            for (i=1; i<=n; i++) {
+                print name ":" arr[i];
+            }
+        }
+        in_block=0;
+    }
+    ' "$full_manifest_path" > "$temp_file"
+
+    # Contar total de componentes
+    local total_componentes=$(wc -l < "$temp_file" | tr -d ' ')
+    local contador_actual=0
+
+    while IFS=: read -r metadata_type member; do
+        echo -e "${COLOR_MUTED}  Creando: ${metadata_type} - ${member}${COLOR_RESET}"
+
+        # Crear el registro en Salesforce
+        sf data create record \
+            --sobject TrackingComponent__c \
+            --values "Proyecto__c='SURA Banca' TipoComponente__c='${tipo_componente}' TipoMetadato__c='${metadata_type}' Name='registro-en-ComponentName__c' ComponentName__c='${member}' Sprint__c='${sprint_numero}' HU__c='${hu_numero}' URL_PR__c='${url_pr}'" \
+            --target-org ${ORG_TRACKING} --json > /dev/null 2>&1
+
+        local cmd_result=$?
+        ((contador_actual++))
+        if [ $cmd_result -eq 0 ]; then
+            echo -e "${COLOR_SUCCESS}    ✓ Creado exitosamente ${contador_actual}/${total_componentes}${COLOR_RESET}"
+            ((componentes_creados++))
+        else
+            echo -e "${COLOR_ERROR}    ✗ Error al crear ${contador_actual}/${total_componentes}${COLOR_RESET}"
+            ((componentes_fallidos++))
+        fi
+    done < "$temp_file"
+
+    # Eliminar archivo temporal
+    rm -f "$temp_file"
+
+    # Mostrar resumen final
+    echo -e "\n${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║                    Tracking Completado                    ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "${COLOR_SUCCESS}  Componentes creados: ${componentes_creados}${COLOR_RESET}"
+    if [ $componentes_fallidos -gt 0 ]; then
+        echo -e "${COLOR_ERROR}  Componentes fallidos: ${componentes_fallidos}${COLOR_RESET}"
+    fi
+
+    return 0
+}
+
+# Función para guardar componentes VLOCITY (YAML) en el sistema de tracking
+function guardar_tracking_componentes_yaml() {
+    local manifest_file="$1"
+    local tipo_componente="$2"  # VLOCITY
+
+    echo -e "\n${COLOR_SUCCESS}${COLOR_BOLD}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║         Sistema de Tracking de Componentes VLOCITY        ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+
+    echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea guardar los componentes en el sistema de Tracking? (S/N):${COLOR_RESET} "
+    read guardar_tracking
+
+    if [[ ! "$guardar_tracking" =~ ^[Ss]$ ]]; then
+        echo -e "${COLOR_MUTED}Tracking omitido.${COLOR_RESET}"
+        return 0
+    fi
+
+    # Solicitar datos comunes para todos los registros
+    echo -e "\n${COLOR_INFO}Ingrese los datos para el tracking:${COLOR_RESET}\n"
+
+    # Sprint
+    echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Número de Sprint (ej: SP22):${COLOR_RESET} "
+    read sprint_numero
+    if [ -z "$sprint_numero" ]; then
+        echo -e "${COLOR_WARNING}Sprint no ingresado. Tracking cancelado.${COLOR_RESET}"
+        return 1
+    fi
+
+    # HU
+    echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Número de HU (ej: 31888):${COLOR_RESET} "
+    read hu_numero
+    if [ -z "$hu_numero" ]; then
+        echo -e "${COLOR_WARNING}HU no ingresada. Tracking cancelado.${COLOR_RESET}"
+        return 1
+    fi
+
+    # PR ID
+    echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}ID del Pull Request (ej: 10750):${COLOR_RESET} "
+    read pr_id
+    if [ -z "$pr_id" ]; then
+        echo -e "${COLOR_WARNING}PR ID no ingresado. Tracking cancelado.${COLOR_RESET}"
+        return 1
+    fi
+
+    # Guardar PR ID en variable global para uso posterior (Azure DevOps)
+    ULTIMO_PR_ID="$pr_id"
+
+    local url_pr="${URL_BASE_PR}${pr_id}"
+
+    # Mostrar resumen antes de procesar
+    echo -e "\n${COLOR_INFO}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║                    Resumen de Tracking                    ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  Proyecto:        ${COLOR_ACCENT}SURA Banca${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  Tipo Componente: ${COLOR_ACCENT}${tipo_componente}${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  Sprint:          ${COLOR_ACCENT}${sprint_numero}${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  HU:              ${COLOR_ACCENT}${hu_numero}${COLOR_RESET}"
+    echo -e "${COLOR_TEXT}  URL PR:          ${COLOR_ACCENT}${url_pr}${COLOR_RESET}"
+
+    # Parsear el YAML y crear registros
+    echo -e "\n${COLOR_INFO}Procesando componentes del manifest YAML...${COLOR_RESET}\n"
+
+    # Obtener la ruta base del proyecto
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    local full_manifest_path="${PROJECT_ROOT}/${manifest_file}"
+
+    # Verificar que el archivo existe
+    if [ ! -f "$full_manifest_path" ]; then
+        echo -e "${COLOR_ERROR}Error: No se encontró el archivo ${full_manifest_path}${COLOR_RESET}"
+        return 1
+    fi
+
+    # Parsear el YAML y extraer componentes
+    # Formato: - TipoMetadato/ApiName # comentario opcional
+    # Extraemos líneas que comienzan con "  - " después de manifest:
+    local componentes_creados=0
+    local componentes_fallidos=0
+
+    # Guardar componentes en un archivo temporal para evitar subshell
+    local temp_file=$(mktemp)
+    grep -E "^\s*-\s+[A-Za-z0-9_]+/" "$full_manifest_path" > "$temp_file"
+
+    # Contar total de componentes
+    local total_componentes=$(wc -l < "$temp_file" | tr -d ' ')
+    local contador_actual=0
+
+    while read -r line; do
+        # Extraer el componente (quitar el "- " inicial y espacios)
+        local componente=$(echo "$line" | sed 's/^[[:space:]]*-[[:space:]]*//')
+
+        # Quitar comentarios (todo después de #)
+        componente=$(echo "$componente" | sed 's/[[:space:]]*#.*//')
+
+        # Extraer TipoMetadato (antes del /)
+        local metadata_type=$(echo "$componente" | cut -d'/' -f1)
+
+        # Extraer ApiName (después del /)
+        local member=$(echo "$componente" | cut -d'/' -f2-)
+
+        echo -e "${COLOR_MUTED}  Creando: ${metadata_type} - ${member}${COLOR_RESET}"
+
+        # Crear el registro en Salesforce
+        sf data create record \
+            --sobject TrackingComponent__c \
+            --values "Proyecto__c='SURA Banca' TipoComponente__c='${tipo_componente}' TipoMetadato__c='${metadata_type}' Name='registro-en-ComponentName__c' ComponentName__c='${member}' Sprint__c='${sprint_numero}' HU__c='${hu_numero}' URL_PR__c='${url_pr}'" \
+            --target-org ${ORG_TRACKING} --json > /dev/null 2>&1
+
+        local cmd_result=$?
+        ((contador_actual++))
+        if [ $cmd_result -eq 0 ]; then
+            echo -e "${COLOR_SUCCESS}    ✓ Creado exitosamente ${contador_actual}/${total_componentes}${COLOR_RESET}"
+            ((componentes_creados++))
+        else
+            echo -e "${COLOR_ERROR}    ✗ Error al crear ${contador_actual}/${total_componentes}${COLOR_RESET}"
+            ((componentes_fallidos++))
+        fi
+    done < "$temp_file"
+
+    # Eliminar archivo temporal
+    rm -f "$temp_file"
+
+    # Mostrar resumen final
+    echo -e "\n${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
+    echo -e "║                    Tracking Completado                    ║"
+    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "${COLOR_SUCCESS}  Componentes creados: ${componentes_creados}${COLOR_RESET}"
+    if [ $componentes_fallidos -gt 0 ]; then
+        echo -e "${COLOR_ERROR}  Componentes fallidos: ${componentes_fallidos}${COLOR_RESET}"
+    fi
+
+    return 0
+}
+
+# Función para seleccionar la org de origen
+
+function seleccionar_org_origen() {
+    echo ""
+    echo -e "  ${WARNING}"
+    echo "  ╭─────────────────────────────────────────────────────╮"
+    echo "  │                   ORG de Origen                     │"
+    echo "  ╰─────────────────────────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    if [[ "$PROYECTO" == "BANCA COL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVBANCA      ${MUTED}juan.obando@suratechcol.com.devbanca${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SITBANCA      ${MUTED}juan.obando@suratechcol.com.sitbanca${COLOR_RESET}"
+    elif [[ "$PROYECTO" == "VIAJES COL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  BUILDVIAJES   ${MUTED}juan.obando@nespon.com.buildviajes${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
+    elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVNequi  ${MUTED}juan.obando@suratech.com.devnequi${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD NEQUI      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+    fi
+    if [[ "$PROYECTO" != "AUTOS CL" ]]; then
+        echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
+        echo -e "  ${OPTION}4.${COLOR_RESET}  UAT           ${MUTED}devcb@sura.com.uat${COLOR_RESET}"
+        echo -e "  ${OPTION}5.${COLOR_RESET}  PRODUCCION    ${MUTED}juan.obando@sura.com.prod${COLOR_RESET}"
+        if [[ "$PROYECTO" == "BANCA COL" ]]; then
+            echo -e "  ${OPTION}6.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        fi
+        echo -e "  ${OPTION}8.${COLOR_RESET}  Nespon        ${MUTED}juan.obando@nespon.com${COLOR_RESET}"
+    fi
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}ENTER. Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}─────────────────────────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+    read org_opcion
+    if [[ "$PROYECTO" == "BANCA COL" ]]; then
+        case $org_opcion in
+            1) ORG_ORIGEN='juan.obando@suratechcol.com.devbanca' ;;
+            2) ORG_ORIGEN='juan.obando@suratechcol.com.sitbanca' ;;
+            3) ORG_ORIGEN='devcb@sura.com.preuat' ;;
+            4) ORG_ORIGEN='devcb@sura.com.uat' ;;
+            5) ORG_ORIGEN='juan.obando@sura.com.prod' ;;
+            6) ORG_ORIGEN='juan.obando@suratech.com.chile.prod' ;;
+            8) ORG_ORIGEN='juan.obando@nespon.com' ;;
+            "") ORG_ORIGEN="" ;;
+            *) ORG_ORIGEN="" ;;
+        esac
+    elif [[ "$PROYECTO" == "VIAJES COL" ]]; then
+        case $org_opcion in
+            1) ORG_ORIGEN='juan.obando@nespon.com.buildviajes' ;;
+            2) ORG_ORIGEN='juan.obando@nespon.com.sitviajes' ;;
+            3) ORG_ORIGEN='devcb@sura.com.preuat' ;;
+            4) ORG_ORIGEN='devcb@sura.com.uat' ;;
+            5) ORG_ORIGEN='juan.obando@sura.com.prod' ;;
+            8) ORG_ORIGEN='juan.obando@nespon.com' ;;
+            "") ORG_ORIGEN="" ;;
+            *) ORG_ORIGEN="" ;;
+        esac
+    elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        case $org_opcion in
+            1) ORG_ORIGEN='juan.obando@suratech.com.devnequi' ;;
+            2) ORG_ORIGEN='juan.obando@suratech.com.chile.prod' ;;
+            "") ORG_ORIGEN="" ;;
+            *) ORG_ORIGEN="" ;;
+        esac
+    fi
+}
+
+# Función para seleccionar la org de destino
+
+function seleccionar_org_destino() {
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭─────────────────────────────────────────────────────╮"
+    echo "  │                   ORG de Destino                    │"
+    echo "  ╰─────────────────────────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    if [[ "$PROYECTO" == "BANCA COL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVBANCA      ${MUTED}juan.obando@suratechcol.com.devbanca${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SITBANCA      ${MUTED}juan.obando@suratechcol.com.sitbanca${COLOR_RESET}"
+    elif [[ "$PROYECTO" == "VIAJES COL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  BUILDVIAJES   ${MUTED}juan.obando@nespon.com.buildviajes${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
+    elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVNequi  ${MUTED}juan.obando@suratech.com.devnequi${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD NEQUI      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+    fi
+    if [[ "$PROYECTO" != "AUTOS CL" ]]; then
+        echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
+        echo -e "  ${OPTION}4.${COLOR_RESET}  UAT           ${MUTED}devcb@sura.com.uat${COLOR_RESET}"
+        echo -e "  ${OPTION}5.${COLOR_RESET}  PRODUCCION    ${MUTED}juan.obando@sura.com.prod${COLOR_RESET}"
+        if [[ "$PROYECTO" == "BANCA COL" ]]; then
+            echo -e "  ${OPTION}6.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        fi
+        echo -e "  ${OPTION}8.${COLOR_RESET}  Nespon        ${MUTED}juan.obando@nespon.com${COLOR_RESET}"
+    fi
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}ENTER. Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}─────────────────────────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+    read org_opcion
+    if [[ "$PROYECTO" == "BANCA COL" ]]; then
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@suratechcol.com.devbanca' ;;
+            2) ORG_DESTINO='juan.obando@suratechcol.com.sitbanca' ;;
+            3) ORG_DESTINO='devcb@sura.com.preuat' ;;
+            4) ORG_DESTINO='devcb@sura.com.uat' ;;
+            5) ORG_DESTINO='juan.obando@sura.com.prod' ;;
+            6) ORG_DESTINO='juan.obando@suratech.com.chile.prod' ;;
+            8) ORG_DESTINO='juan.obando@nespon.com' ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    elif [[ "$PROYECTO" == "VIAJES COL" ]]; then
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@nespon.com.buildviajes' ;;
+            2) ORG_DESTINO='juan.obando@nespon.com.sitviajes' ;;
+            3) ORG_DESTINO='devcb@sura.com.preuat' ;;
+            4) ORG_DESTINO='devcb@sura.com.uat' ;;
+            5) ORG_DESTINO='juan.obando@sura.com.prod' ;;
+            8) ORG_DESTINO='juan.obando@nespon.com' ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@suratech.com.devnequi' ;;
+            2) ORG_DESTINO='juan.obando@suratech.com.chile.prod' ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    fi
+}
+
+# Función para seleccionar org de destino (Sandbox) - Para validaciones rápidas y con tests específicos
+function seleccionar_org_destino_sandbox() {
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭─────────────────────────────────────────────────────╮"
+    echo "  │             ORG de Destino (Sandbox)                │"
+    echo "  ╰─────────────────────────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    if [[ "$PROYECTO" == "BANCA COL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVBANCA      ${MUTED}juan.obando@suratechcol.com.devbanca${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SITBANCA      ${MUTED}juan.obando@suratechcol.com.sitbanca${COLOR_RESET}"
+    elif [[ "$PROYECTO" == "VIAJES COL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  BUILDVIAJES   ${MUTED}juan.obando@nespon.com.buildviajes${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
+    elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  DEVNequi  ${MUTED}juan.obando@suratech.com.devnequi${COLOR_RESET}"
+    fi
+    if [[ "$PROYECTO" != "AUTOS CL" ]]; then
+        echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
+        echo -e "  ${OPTION}4.${COLOR_RESET}  UAT           ${MUTED}devcb@sura.com.uat${COLOR_RESET}"
+    fi
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}ENTER. Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}─────────────────────────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+    read org_opcion
+    if [[ "$PROYECTO" == "BANCA COL" ]]; then
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@suratechcol.com.devbanca' ;;
+            2) ORG_DESTINO='juan.obando@suratechcol.com.sitbanca' ;;
+            3) ORG_DESTINO='devcb@sura.com.preuat' ;;
+            4) ORG_DESTINO='devcb@sura.com.uat' ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    elif [[ "$PROYECTO" == "VIAJES COL" ]]; then
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@nespon.com.buildviajes' ;;
+            2) ORG_DESTINO='juan.obando@nespon.com.sitviajes' ;;
+            3) ORG_DESTINO='devcb@sura.com.preuat' ;;
+            4) ORG_DESTINO='devcb@sura.com.uat' ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@suratech.com.devnequi' ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    fi
+}
+
+# Función para seleccionar org de destino (Producción) - Para validaciones exhaustivas
+function seleccionar_org_destino_produccion() {
+    echo ""
+    echo -e "  ${ERROR}"
+    echo "  ╭─────────────────────────────────────────────────────╮"
+    echo "  │            ORG de Destino (Producción)              │"
+    echo "  ╰─────────────────────────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    if [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        echo -e "  ${OPTION}1.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+    else
+        echo -e "  ${OPTION}1.${COLOR_RESET}  PRODUCCION    ${MUTED}juan.obando@sura.com.prod${COLOR_RESET}"
+        if [[ "$PROYECTO" == "BANCA COL" ]]; then
+            echo -e "  ${OPTION}2.${COLOR_RESET}  PROD NEQUI    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        fi
+    fi
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}ENTER. Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}─────────────────────────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+    read org_opcion
+    if [[ "$PROYECTO" == "AUTOS CL" ]]; then
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@suratech.com.chile.prod' ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    else
+        case $org_opcion in
+            1) ORG_DESTINO='juan.obando@sura.com.prod' ;;
+            2) if [[ "$PROYECTO" == "BANCA COL" ]]; then ORG_DESTINO='juan.obando@suratech.com.chile.prod'; else ORG_DESTINO=""; fi ;;
+            "") ORG_DESTINO="" ;;
+            *) ORG_DESTINO="" ;;
+        esac
+    fi
+}
+
+# Función para mostrar el menú de selección de proyecto
+function mostrar_menu_proyecto() {
+    clear
+    echo ""
+    local box_width=37
+    local text="Selección de Proyecto"
+    local text_len=${#text}
+    local pad_total=$((box_width - text_len))
+    local pad_left=$(( pad_total / 2 ))
+    local pad_right=$(( pad_total - pad_left ))
+    local sp_left=$(printf '%*s' "$pad_left" '')
+    local sp_right=$(printf '%*s' "$pad_right" '')
+    local border=$(printf '─%.0s' $(seq 1 $box_width))
+    local empty=$(printf ' %.0s' $(seq 1 $box_width))
+    echo -e "  ${TITLE}"
+    echo "  ╭${border}╮"
+    echo "  │${empty}│"
+    echo "  │${sp_left}${text}${sp_right}│"
+    echo "  │${empty}│"
+    echo "  ╰${border}╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  BANCA    ${MUTED}|  Colombia${COLOR_RESET}"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  VIAJES   ${MUTED}|  Colombia${COLOR_RESET}"
+    echo -e "  ${OPTION}3.${COLOR_RESET}  AUTOS    ${MUTED}|  Chile${COLOR_RESET}"
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}E.${COLOR_RESET}  Salir"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para mostrar el menú principal
+function mostrar_menu_principal() {
+    clear
+    echo ""
+    local box_width=37
+    local text="DevOps CLI Tool ${PROYECTO}"
+    local text_len=${#text}
+    local pad_total=$((box_width - text_len))
+    local pad_left=$(( pad_total / 2 ))
+    local pad_right=$(( pad_total - pad_left ))
+    local sp_left=$(printf '%*s' "$pad_left" '')
+    local sp_right=$(printf '%*s' "$pad_right" '')
+    local border=$(printf '─%.0s' $(seq 1 $box_width))
+    local empty=$(printf ' %.0s' $(seq 1 $box_width))
+    echo -e "  ${TITLE}"
+    echo "  ╭${border}╮"
+    echo -e "  │${sp_left}DevOps CLI Tool ${WARNING}${PROYECTO}${TITLE}${sp_right}│"
+    echo "  ╰${border}╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Metadata CORE"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Metadata VLOCITY"
+    echo -e "  ${OPTION}3.${COLOR_RESET}  Export List"
+    echo -e "  ${OPTION}4.${COLOR_RESET}  Autenticar"
+    echo -e "  ${OPTION}5.${COLOR_RESET}  Release"
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+    echo -e "  ${COLOR_SUCCESS}E.  Salir${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para mostrar el submenú XML
+function mostrar_menu_xml() {
+    clear
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭───────────────────────────────────╮"
+    echo "  │      Metadata CORE - Opciones     │"
+    echo "  ╰───────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Retrieve"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Run Test Deploy"
+    echo -e "  ${OPTION}3.${COLOR_RESET}  Deploy"
+    echo -e "  ${OPTION}4.${COLOR_RESET}  Run Test Destructive"
+    echo -e "  ${OPTION}5.${COLOR_RESET}  Destructive"
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para mostrar el submenú YAML
+function mostrar_menu_yaml() {
+    clear
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭───────────────────────────────────╮"
+    echo "  │   Metadata VLOCITY - Opciones     │"
+    echo "  ╰───────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Retrieve"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Deploy"
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para mostrar el submenú Export List
+function mostrar_menu_export() {
+    clear
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭───────────────────────────────────╮"
+    echo "  │      Export List - Opciones       │"
+    echo "  ╰───────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Export list metadata CORE"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Export objetos CORE en CSV"
+    echo -e "  ${OPTION}3.${COLOR_RESET}  Export list metadata VLOCITY"
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para mostrar el submenú Autenticar
+function mostrar_menu_autenticar() {
+    clear
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭───────────────────────────────────╮"
+    echo "  │       Autenticar - Opciones       │"
+    echo "  ╰───────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Genera JSON de autenticación"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Abrir ORG"
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para gestionar el monitor automático de PRs
+function gestionar_monitor_prs() {
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local MONITOR_SCRIPT="${SCRIPT_DIR}/jarvis/auto_pr_monitor.py"
+    local CONFIG_FILE="${SCRIPT_DIR}/jarvis/.pr_monitor_config.json"
+    local CRON_CMD="*/30 7-23 * * 1-6 cd ${SCRIPT_DIR} && /usr/bin/python3 ${MONITOR_SCRIPT} --check >> ${SCRIPT_DIR}/jarvis/.pr_monitor.log 2>&1"
+
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭───────────────────────────────────────────────────╮"
+    echo "  │       Monitor Automático de PRs Completados       │"
+    echo "  ╰───────────────────────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo -e "  ${MUTED}Notifica via Teams y macOS cuando se completa un PR hacia UAT o Main${COLOR_RESET}"
+
+    if ! command -v python3 &> /dev/null; then
+        echo -e "  ${COLOR_ERROR}Error: Python3 no está instalado${COLOR_RESET}"
+        return 1
+    fi
+
+    if [ ! -f "$MONITOR_SCRIPT" ]; then
+        echo -e "  ${COLOR_ERROR}Error: No se encontró ${MONITOR_SCRIPT}${COLOR_RESET}"
+        return 1
+    fi
+
+    # Detectar estado actual
+    local cron_activo=false
+    if crontab -l 2>/dev/null | grep -q "auto_pr_monitor"; then
+        cron_activo=true
+    fi
+
+    local webhook_configurado=false
+    if [ -f "$CONFIG_FILE" ]; then
+        local has_wh=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); print('yes' if c.get('teams_webhook_url') else 'no')" 2>/dev/null)
+        if [ "$has_wh" = "yes" ]; then
+            webhook_configurado=true
+        fi
+    fi
+
+    while true; do
+        echo ""
+        if [ "$cron_activo" = true ]; then
+            echo -e "  ${COLOR_SUCCESS}Estado: ACTIVO (cada 30 min, Lun-Sáb 7am-11:30pm)${COLOR_RESET}"
+        else
+            echo -e "  ${COLOR_WARNING}Estado: INACTIVO${COLOR_RESET}"
+        fi
+
+        if [ "$webhook_configurado" = true ]; then
+            echo -e "  ${MUTED}Teams: Webhook configurado${COLOR_RESET}"
+        else
+            echo -e "  ${MUTED}Teams: Webhook no configurado (solo notificación macOS)${COLOR_RESET}"
+        fi
+        echo ""
+
+        if [ "$cron_activo" = true ]; then
+            echo -e "  ${OPTION}1.${COLOR_RESET}  Desactivar monitor"
+        else
+            echo -e "  ${OPTION}1.${COLOR_RESET}  Activar monitor"
+        fi
+        echo -e "  ${OPTION}2.${COLOR_RESET}  Configurar Teams Webhook"
+        echo -e "  ${OPTION}3.${COLOR_RESET}  Ejecutar verificación ahora"
+        echo -e "  ${OPTION}4.${COLOR_RESET}  Ver log de actividad"
+        echo -e "  ${OPTION}5.${COLOR_RESET}  Limpiar historial de PRs notificados"
+        echo -e "  ${OPTION}6.${COLOR_RESET}  Ver PRs en base de datos"
+        echo -e "  ${OPTION}7.${COLOR_RESET}  Ver historial de ejecuciones del cron"
+        echo ""
+        echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+        echo ""
+        echo -e "  ${DIM}───────────────────────────────────────${COLOR_RESET}"
+        echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+        read opcion_monitor
+
+        case $opcion_monitor in
+            0)
+                return 0
+            ;;
+            1)
+                if [ "$cron_activo" = true ]; then
+                    crontab -l 2>/dev/null | grep -v "auto_pr_monitor" | crontab -
+                    if [ -f "$CONFIG_FILE" ]; then
+                        python3 -c "
+import json
+c = json.load(open('$CONFIG_FILE'))
+c['active'] = False
+json.dump(c, open('$CONFIG_FILE', 'w'), indent=2)
+"
+                    fi
+                    cron_activo=false
+                    echo ""
+                    echo -e "  ${COLOR_SUCCESS}Monitor desactivado. Cron eliminado.${COLOR_RESET}"
+                else
+                    # Activar cron
+                    (echo 'PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'; echo ''; crontab -l 2>/dev/null | grep -v "auto_pr_monitor" | grep -v "^PATH="; echo "$CRON_CMD") | crontab -
+
+                    # Crear/actualizar config
+                    if [ ! -f "$CONFIG_FILE" ]; then
+                        python3 -c "
+import json
+json.dump({'teams_webhook_url':'','target_branches':['uat','main'],'active':True}, open('$CONFIG_FILE','w'), indent=2)
+"
+                    else
+                        python3 -c "
+import json
+c = json.load(open('$CONFIG_FILE'))
+c['active'] = True
+json.dump(c, open('$CONFIG_FILE', 'w'), indent=2)
+"
+                    fi
+                    cron_activo=true
+                    echo ""
+                    echo -e "  ${COLOR_SUCCESS}Monitor activado. Se ejecutará cada 30 min (Lun-Vie 8am-6pm).${COLOR_RESET}"
+                    if [ "$webhook_configurado" = false ]; then
+                        echo -e "  ${MUTED}Nota: Sin webhook, recibirás notificación macOS + reporte en navegador.${COLOR_RESET}"
+                    fi
+                fi
+            ;;
+            2)
+                echo ""
+                echo -e "  ${COLOR_TEXT}Configuración de Microsoft Teams Webhook${COLOR_RESET}"
+                echo ""
+                echo -e "  ${MUTED}Para crear un webhook en Teams:${COLOR_RESET}"
+                echo -e "  ${MUTED}1. Abre el canal de Teams donde quieres las notificaciones${COLOR_RESET}"
+                echo -e "  ${MUTED}2. Clic en ··· → Conectores (o Workflows)${COLOR_RESET}"
+                echo -e "  ${MUTED}3. Busca 'Incoming Webhook' → Configurar${COLOR_RESET}"
+                echo -e "  ${MUTED}4. Dale un nombre (ej: 'Monitor PRs') → Crear${COLOR_RESET}"
+                echo -e "  ${MUTED}5. Copia la URL del webhook${COLOR_RESET}"
+                echo ""
+                echo -e -n "  ${COLOR_TEXT}Pegue la URL del webhook: ${COLOR_RESET}"
+                read webhook_url
+
+                if [ -z "$webhook_url" ]; then
+                    echo -e "  ${COLOR_WARNING}No se ingresó URL${COLOR_RESET}"
+                    continue
+                fi
+
+                # Guardar config
+                python3 -c "
+import json
+config = {'teams_webhook_url': '$webhook_url', 'target_branches': ['uat', 'main'], 'active': $( [ '$cron_activo' = true ] && echo 'True' || echo 'False' )}
+existing = {}
+try:
+    existing = json.load(open('$CONFIG_FILE'))
+except: pass
+existing.update(config)
+json.dump(existing, open('$CONFIG_FILE', 'w'), indent=2)
+"
+                webhook_configurado=true
+
+                # Test
+                echo -e -n "  ${COLOR_TEXT}¿Enviar mensaje de prueba a Teams? (S/N): ${COLOR_RESET}"
+                read test_teams
+                if [[ "$test_teams" =~ ^[Ss]$ ]]; then
+                    echo -e "  ${COLOR_INFO}Enviando mensaje de prueba...${COLOR_RESET}"
+                    python3 -c "
+import urllib.request, urllib.error, json
+url = '$webhook_url'
+# Intentar Adaptive Card primero
+card = {'type':'message','attachments':[{'contentType':'application/vnd.microsoft.card.adaptive','contentUrl':None,'content':{'type':'AdaptiveCard','version':'1.4','body':[{'type':'TextBlock','text':'Monitor de PRs configurado correctamente','weight':'Bolder','size':'Medium'},{'type':'TextBlock','text':'Recibirás notificaciones cuando se completen PRs hacia UAT o Main.','wrap':True}]}}]}
+try:
+    data = json.dumps(card).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers={'Content-Type':'application/json'})
+    resp = urllib.request.urlopen(req, timeout=10)
+    print('OK')
+except urllib.error.HTTPError:
+    # Fallback: formato simple para Workflows
+    simple = {'title':'Monitor de PRs','body':'Configurado correctamente. Recibirás notificaciones cuando se completen PRs hacia UAT o Main.'}
+    try:
+        data2 = json.dumps(simple).encode('utf-8')
+        req2 = urllib.request.Request(url, data=data2, headers={'Content-Type':'application/json'})
+        resp2 = urllib.request.urlopen(req2, timeout=10)
+        print('OK')
+    except Exception as e:
+        print(f'ERROR:{e}')
+except Exception as e:
+    print(f'ERROR:{e}')
+" 2>/dev/null | while read line; do
+                        if [ "$line" = "OK" ]; then
+                            echo -e "  ${COLOR_SUCCESS}Mensaje enviado a Teams correctamente${COLOR_RESET}"
+                        else
+                            echo -e "  ${COLOR_ERROR}${line}${COLOR_RESET}"
+                            echo -e "  ${MUTED}Verifique la URL del webhook e intente de nuevo${COLOR_RESET}"
+                        fi
+                    done
+                fi
+                echo -e "  ${COLOR_SUCCESS}Webhook guardado${COLOR_RESET}"
+            ;;
+            3)
+                echo ""
+                echo -e "  ${COLOR_INFO}Ejecutando verificación manual...${COLOR_RESET}"
+                echo ""
+                cd "$SCRIPT_DIR"
+                python3 "$MONITOR_SCRIPT" --check
+                echo ""
+                echo -e "  ${COLOR_SUCCESS}Verificación completada${COLOR_RESET}"
+            ;;
+            4)
+                local LOG_FILE="${SCRIPT_DIR}/jarvis/.pr_monitor.log"
+                echo ""
+                if [ -f "$LOG_FILE" ]; then
+                    echo -e "  ${COLOR_TEXT}Últimas 20 líneas del log:${COLOR_RESET}"
+                    echo -e "  ${MUTED}─────────────────────────────────────────${COLOR_RESET}"
+                    tail -20 "$LOG_FILE" | while IFS= read -r line; do
+                        echo -e "  ${MUTED}${line}${COLOR_RESET}"
+                    done
+                    echo -e "  ${MUTED}─────────────────────────────────────────${COLOR_RESET}"
+                else
+                    echo -e "  ${MUTED}No hay log aún. Ejecute una verificación primero.${COLOR_RESET}"
+                fi
+            ;;
+            5)
+                echo ""
+                cd "$SCRIPT_DIR"
+                python3 "$MONITOR_SCRIPT" --clear
+                echo -e "  ${COLOR_SUCCESS}Historial limpiado${COLOR_RESET}"
+            ;;
+            6)
+                echo ""
+                cd "$SCRIPT_DIR"
+                python3 "$MONITOR_SCRIPT" --db-status
+            ;;
+            7)
+                echo ""
+                cd "$SCRIPT_DIR"
+                python3 "$MONITOR_SCRIPT" --cron-log
+            ;;
+            *)
+                echo -e "  ${COLOR_WARNING}Opción inválida${COLOR_RESET}"
+            ;;
+        esac
+    done
+}
+
+# Función para mostrar el submenú Release
+function mostrar_menu_git() {
+    clear
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭───────────────────────────────────╮"
+    echo "  │        Release - Opciones         │"
+    echo "  ╰───────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Verificar Pull Requests"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Reporte de Componentes por Manifest"
+    echo -e "  ${OPTION}3.${COLOR_RESET}  Reporte de Componentes por PR"
+    echo -e "  ${OPTION}4.${COLOR_RESET}  Reporte de PRs Aprobados por Periodo"
+    echo -e "  ${OPTION}5.${COLOR_RESET}  Migrar componentes de un PR a otra rama"
+    echo -e "  ${OPTION}6.${COLOR_RESET}  Monitor Automático de PRs"
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para verificar cambios de un PR vs una rama
+function verificar_cambios_pr() {
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local PYTHON_SCRIPT="${SCRIPT_DIR}/pr_commit_report.py"
+    local RAMA_COMPARACION="uat"
+
+    # Verificar que Python3 esté instalado
+    if ! command -v python3 &> /dev/null; then
+        echo -e "${COLOR_ERROR}Error: Python3 no está instalado${COLOR_RESET}"
+        echo -e "${COLOR_MUTED}Instale Python3 para usar esta funcionalidad${COLOR_RESET}"
+        return 1
+    fi
+
+    # Verificar que el script Python existe
+    if [ ! -f "$PYTHON_SCRIPT" ]; then
+        echo -e "${COLOR_ERROR}Error: No se encontró el script ${PYTHON_SCRIPT}${COLOR_RESET}"
+        return 1
+    fi
+
+    # Loop del menú
+    while true; do
+        echo ""
+        echo -e "  ${TITLE}"
+        echo "  ╭───────────────────────────────────────╮"
+        echo "  │     Reporte de Commits por PR ID      │"
+        echo "  ╰───────────────────────────────────────╯"
+        echo -e "  ${COLOR_RESET}"
+        echo -e "  ${MUTED}Consulta el historial de commits de los componentes de un PR contra la rama seleccionada (${RAMA_COMPARACION})${COLOR_RESET}"
+        echo ""
+        echo -e "  ${OPTION}1.${COLOR_RESET}  Generar reporte HTML"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  Cambiar rama ${MUTED}[actual: ${RAMA_COMPARACION}]${COLOR_RESET}"
+        echo ""
+        echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+        echo ""
+        echo -e "  ${DIM}───────────────────────────────────────${COLOR_RESET}"
+        echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+        read opcion_pr
+
+        case $opcion_pr in
+            0)
+                return 0
+            ;;
+            1) # Exportar a HTML
+                echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Ingrese el ID del Pull Request:${COLOR_RESET} "
+                read pr_id_input
+
+                if [ -z "$pr_id_input" ]; then
+                    echo -e "${COLOR_WARNING}No se ingresó ID de PR.${COLOR_RESET}"
+                    continue
+                fi
+
+                echo -e "\n${COLOR_INFO}Generando reporte para PR #${pr_id_input} vs ${RAMA_COMPARACION}...${COLOR_RESET}\n"
+
+                # Ejecutar script Python
+                cd "$SCRIPT_DIR"
+                python3 "$PYTHON_SCRIPT" "$pr_id_input" "$RAMA_COMPARACION"
+
+                # Obtener el archivo generado (nuevo patrón del script unificado)
+                local output_file=$(ls -t commit_report_pr_${pr_id_input}_${RAMA_COMPARACION}_*.html 2>/dev/null | head -1)
+
+                if [ -n "$output_file" ] && [ -f "$output_file" ]; then
+                    # Verificar híbridos del PR contra listas de híbridos
+                    verificar_hibridos_por_pr "$pr_id_input"
+
+                    echo -e "\n${COLOR_SUCCESS}Abriendo reporte en navegador...${COLOR_RESET}"
+                    open "$output_file" 2>/dev/null
+                fi
+
+                echo ""
+                echo "* ENTER PARA CONTINUAR *"
+                read foo
+            ;;
+            2) # Cambiar rama
+                echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Ingrese el nombre de la rama de comparación:${COLOR_RESET} "
+                read nueva_rama
+
+                if [ -n "$nueva_rama" ]; then
+                    RAMA_COMPARACION="$nueva_rama"
+                    echo -e "${COLOR_SUCCESS}Rama cambiada a: ${RAMA_COMPARACION}${COLOR_RESET}"
+                else
+                    echo -e "${COLOR_WARNING}No se ingresó ninguna rama, se mantiene: ${RAMA_COMPARACION}${COLOR_RESET}"
+                fi
+            ;;
+            *)
+                echo -e "${COLOR_WARNING}Opción inválida${COLOR_RESET}"
+            ;;
+        esac
+    done
+}
+
+# Función para verificar historial de cambios contra UAT
+function verificar_historial_cambios() {
+    # Obtener la ruta base del proyecto (un nivel arriba de scripts/)
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    local PYTHON_SCRIPT="${SCRIPT_DIR}/pr_commit_report.py"
+
+    # Rama por defecto
+    local RAMA_SELECCIONADA="uat"
+
+    # Verificar que Python3 esté instalado
+    if ! command -v python3 &> /dev/null; then
+        echo -e "${COLOR_ERROR}Error: Python3 no está instalado${COLOR_RESET}"
+        echo -e "${COLOR_MUTED}Instale Python3 para usar esta funcionalidad${COLOR_RESET}"
+        return 1
+    fi
+
+    # Verificar que el script Python existe
+    if [ ! -f "$PYTHON_SCRIPT" ]; then
+        echo -e "${COLOR_ERROR}Error: No se encontró el script ${PYTHON_SCRIPT}${COLOR_RESET}"
+        return 1
+    fi
+
+    # Loop del menú
+    while true; do
+        echo ""
+        echo -e "  ${TITLE}"
+        echo "  ╭───────────────────────────────────────────────────╮"
+        echo "  │       Reporte de Commits por Componente           │"
+        echo "  ╰───────────────────────────────────────────────────╯"
+        echo -e "  ${COLOR_RESET}"
+        echo -e "  ${MUTED}Consulta el historial de commits de cada componente del manifest contra la rama seleccionada (${RAMA_SELECCIONADA})${COLOR_RESET}"
+        echo ""
+        echo -e "  ${OPTION}1.${COLOR_RESET}  Generar reporte HTML"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  Cambiar rama ${MUTED}[actual: ${RAMA_SELECCIONADA}]${COLOR_RESET}"
+        echo ""
+        echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+        echo ""
+        echo -e "  ${DIM}───────────────────────────────────────${COLOR_RESET}"
+        echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+        read opcion_reporte
+
+        case $opcion_reporte in
+            0)
+                return 0
+            ;;
+            1) # Exportar HTML
+                local timestamp=$(date +'%Y%m%d_%H%M%S')
+                local rama_clean=$(echo "$RAMA_SELECCIONADA" | tr '/' '_')
+                local output_file="${SCRIPT_DIR}/commit_report_${rama_clean}_${timestamp}.html"
+                echo -e "\n${COLOR_INFO}Exportando reporte HTML para rama ${RAMA_SELECCIONADA}...${COLOR_RESET}\n"
+                cd "$PROJECT_ROOT"
+                python3 "$PYTHON_SCRIPT" --manifest "$RAMA_SELECCIONADA" --manifest-xml "${MANIFEST_DIR}/${XML_COMPONENTES}" --manifest-yaml "${MANIFEST_DIR}/${YAML_COMPONENTES}" --output "$output_file"
+                cd "$SCRIPT_DIR"
+                echo -e "\n${COLOR_SUCCESS}Archivo generado: ${output_file}${COLOR_RESET}"
+
+                # Verificar híbridos automáticamente
+                verificar_hibridos
+
+                echo -e "${COLOR_INFO}Abriendo en navegador...${COLOR_RESET}"
+                # Abrir en navegador (macOS)
+                open "$output_file" 2>/dev/null || xdg-open "$output_file" 2>/dev/null || echo -e "${COLOR_MUTED}Abra el archivo manualmente en su navegador${COLOR_RESET}"
+                echo ""
+                echo "* ENTER PARA CONTINUAR *"
+                read foo
+            ;;
+            2) # Cambiar rama
+                echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Ingrese el nombre de la rama:${COLOR_RESET} "
+                read nueva_rama
+                if [ -n "$nueva_rama" ]; then
+                    RAMA_SELECCIONADA="$nueva_rama"
+                    echo -e "${COLOR_SUCCESS}Rama cambiada a: ${RAMA_SELECCIONADA}${COLOR_RESET}"
+                else
+                    echo -e "${COLOR_WARNING}No se ingresó ninguna rama, se mantiene: ${RAMA_SELECCIONADA}${COLOR_RESET}"
+                fi
+            ;;
+            *)
+                echo -e "${COLOR_WARNING}Opción inválida${COLOR_RESET}"
+            ;;
+        esac
+    done
+}
+
+# ============================================================================
+# FUNCIÓN: Reporte de PRs Aprobados por Periodo
+# ============================================================================
+function verificar_cambios_por_fecha() {
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    local PYTHON_SCRIPT="${SCRIPT_DIR}/pr_commit_report.py"
+
+    if ! command -v python3 &> /dev/null; then
+        echo -e "${COLOR_ERROR}Error: Python3 no está instalado${COLOR_RESET}"
+        return 1
+    fi
+
+    if [ ! -f "$PYTHON_SCRIPT" ]; then
+        echo -e "${COLOR_ERROR}Error: No se encontró el script ${PYTHON_SCRIPT}${COLOR_RESET}"
+        return 1
+    fi
+
+    echo ""
+
+        echo -e "  ${TITLE}"
+        echo "  ╭───────────────────────────────────────────────────╮"
+        echo "  │       Reporte de PRs Aprobados por Periodo        │"
+        echo "  ╰───────────────────────────────────────────────────╯"
+        echo -e "  ${COLOR_RESET}"
+        echo -e "  ${MUTED}Consulta los PRs aprobados y sus componentes en un periodo de tiempo definido${COLOR_RESET}"
+    echo ""
+    local ayer=$(date -v-1d +'%Y-%m-%d' 2>/dev/null || date -d 'yesterday' +'%Y-%m-%d' 2>/dev/null)
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} ¿Ver reporte de PRs aprobados ayer ${MUTED}(${ayer})${COLOR_RESET}? ${COLOR_TEXT}[S/N]:${COLOR_RESET} "
+    read respuesta_ayer
+
+    local fecha_ingresada
+    local fecha_final=""
+    if [[ "$respuesta_ayer" =~ ^[Ss]$ ]]; then
+        fecha_ingresada="$ayer"
+    else
+        echo ""
+        echo -e "  ${MUTED}Nota: Las fechas corresponden a la fecha de aprobación del PR${COLOR_RESET}"
+        echo -e "  ${COLOR_TEXT}¿Qué tipo de consulta desea?${COLOR_RESET}"
+        echo -e "    ${OPTION}1.${COLOR_RESET} Día específico"
+        echo -e "    ${OPTION}2.${COLOR_RESET} Rango de fechas"
+        echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} Seleccione ${COLOR_TEXT}[1/2]:${COLOR_RESET} "
+        read tipo_consulta
+
+        if [[ "$tipo_consulta" == "2" ]]; then
+            echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} Fecha inicial ${MUTED}(YYYY-MM-DD)${COLOR_RESET}: "
+            read fecha_ingresada
+            echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} Fecha final   ${MUTED}(YYYY-MM-DD)${COLOR_RESET}: "
+            read fecha_final
+
+            if ! echo "$fecha_ingresada" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+                echo -e "${COLOR_ERROR}Formato inválido en fecha inicial. Use YYYY-MM-DD${COLOR_RESET}"
+                sleep 2
+                return 1
+            fi
+            if ! echo "$fecha_final" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+                echo -e "${COLOR_ERROR}Formato inválido en fecha final. Use YYYY-MM-DD${COLOR_RESET}"
+                sleep 2
+                return 1
+            fi
+            if [[ "$fecha_final" < "$fecha_ingresada" ]]; then
+                echo -e "${COLOR_ERROR}La fecha final no puede ser anterior a la inicial${COLOR_RESET}"
+                sleep 2
+                return 1
+            fi
+        else
+            echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} Ingrese la fecha ${MUTED}(YYYY-MM-DD)${COLOR_RESET}: "
+            read fecha_ingresada
+
+            if ! echo "$fecha_ingresada" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+                echo -e "${COLOR_ERROR}Formato inválido. Use YYYY-MM-DD${COLOR_RESET}"
+                sleep 2
+                return 1
+            fi
+        fi
+    fi
+
+    local date_label="$fecha_ingresada"
+    if [[ -n "$fecha_final" ]]; then
+        date_label="${fecha_ingresada} al ${fecha_final}"
+    fi
+
+    local timestamp=$(date +'%Y%m%d_%H%M%S')
+    local output_file="${SCRIPT_DIR}/commit_report_daily_${fecha_ingresada}_${timestamp}.html"
+
+    echo -e "\n${COLOR_INFO}Actualizando repositorio...${COLOR_RESET}"
+    cd "$PROJECT_ROOT"
+    git fetch origin --quiet && echo -e "${COLOR_SUCCESS}✓ Repositorio actualizado${COLOR_RESET}" || echo -e "${COLOR_WARNING}⚠ No se pudo actualizar el repo (continuando de todas formas)${COLOR_RESET}"
+
+    echo -e "\n${COLOR_INFO}Buscando PRs aprobados: ${date_label} (todas las ramas)...${COLOR_RESET}"
+    if [[ -n "$fecha_final" ]]; then
+        python3 "$PYTHON_SCRIPT" --daily-report --date "$fecha_ingresada" --end-date "$fecha_final" --output "$output_file"
+    else
+        python3 "$PYTHON_SCRIPT" --daily-report --date "$fecha_ingresada" --output "$output_file"
+    fi
+    local exit_code=$?
+    cd "$SCRIPT_DIR"
+
+    if [ $exit_code -eq 0 ] && [ -f "$output_file" ]; then
+        echo -e "\n${COLOR_SUCCESS}Archivo generado: ${output_file}${COLOR_RESET}"
+        echo -e "${COLOR_INFO}Abriendo en navegador...${COLOR_RESET}"
+        open "$output_file" 2>/dev/null || xdg-open "$output_file" 2>/dev/null || echo -e "${COLOR_MUTED}Abra el archivo manualmente${COLOR_RESET}"
+    fi
+
+    echo ""
+    echo "* ENTER PARA CONTINUAR *"
+    read foo
+}
+
+# ============================================================================
+# FUNCIÓN: Migrar componentes de un PR a otra rama
+# ============================================================================
+function crear_commit_hacia_uat() {
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭─────────────────────────────────────────────────────╮"
+    echo "  │      Migrar componentes de un PR a otra rama        │"
+    echo "  ╰─────────────────────────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+    echo -e "  ${MUTED}Trae los archivos de un PR completado y los aplica en la rama destino mediante cherry-pick automático${COLOR_RESET}"
+    echo ""
+
+    # Pedir ID del Pull Request
+    echo -e -n "  ${COLOR_TEXT}Ingrese el ID del Pull Request: ${COLOR_RESET}"
+    read pr_id_input
+
+    if [ -z "$pr_id_input" ]; then
+        echo -e "  ${COLOR_WARNING}No se ingresó PR ID${COLOR_RESET}"
+        return 1
+    fi
+
+    # Obtener info del PR desde Azure DevOps
+    echo ""
+    echo -e "  ${COLOR_INFO}Obteniendo información del PR #${pr_id_input}...${COLOR_RESET}"
+
+    local pr_info
+    pr_info=$(az repos pr show --id "$pr_id_input" --query "{title: title, status: status, mergeCommitId: lastMergeCommit.commitId, sourceBranch: sourceRefName, targetBranch: targetRefName}" -o json 2>/dev/null)
+
+    if [ $? -ne 0 ] || [ -z "$pr_info" ]; then
+        echo -e "  ${COLOR_ERROR}Error al obtener info del PR. Verifica el ID y tu autenticación en Azure.${COLOR_RESET}"
+        return 1
+    fi
+
+    local pr_title
+    pr_title=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('title',''))" 2>/dev/null)
+    local pr_status
+    pr_status=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+    local merge_commit
+    merge_commit=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('mergeCommitId','') or '')" 2>/dev/null)
+    local source_branch
+    source_branch=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sourceBranch','').replace('refs/heads/',''))" 2>/dev/null)
+    local target_branch
+    target_branch=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('targetBranch','').replace('refs/heads/',''))" 2>/dev/null)
+
+    # Validar que el PR esté completado (aprobado/merged)
+    if [ "$pr_status" != "completed" ]; then
+        echo ""
+        echo -e "  ${COLOR_ERROR}El PR #${pr_id_input} no está completado.${COLOR_RESET}"
+        echo -e "  ${COLOR_ERROR}Estado actual: ${COLOR_ACCENT}${pr_status}${COLOR_RESET}"
+        echo -e "  ${COLOR_WARNING}Solo se permiten PRs completados (aprobados y merged).${COLOR_RESET}"
+        return 1
+    fi
+
+    # Mostrar info del PR
+    echo ""
+    echo -e "  ${COLOR_MUTED}─────────────────────────────────────────${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Título:   ${COLOR_ACCENT}${pr_title}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Estado:   ${COLOR_SUCCESS}${pr_status}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Origen:   ${COLOR_ACCENT}${source_branch}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Destino:  ${COLOR_ACCENT}${target_branch}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Commit:   ${COLOR_ACCENT}${merge_commit:0:12}${COLOR_RESET}"
+    echo -e "  ${COLOR_MUTED}─────────────────────────────────────────${COLOR_RESET}"
+    echo ""
+    echo -e "  ${COLOR_INFO}Rama origen (donde se hizo merge): ${COLOR_ACCENT}${target_branch}${COLOR_RESET}"
+
+    # Guardar rama actual para volver después
+    local rama_original
+    rama_original=$(git branch --show-current)
+
+    # Pedir rama destino (creada manualmente por el usuario)
+    echo ""
+    echo -e -n "  ${COLOR_TEXT}Ingrese la rama destino (donde aplicar los cambios): ${COLOR_RESET}"
+    read rama_destino
+
+    if [ -z "$rama_destino" ]; then
+        echo -e "  ${COLOR_WARNING}No se ingresó rama destino${COLOR_RESET}"
+        return 1
+    fi
+
+    local PROJECT_ROOT
+    PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # Actualizar rama origen del PR (OBLIGATORIO para tener los cambios del merge)
+    echo ""
+    echo -e "  ${COLOR_INFO}Actualizando rama ${COLOR_ACCENT}${target_branch}${COLOR_INFO}...${COLOR_RESET}"
+    local fetch_err
+    fetch_err=$(git fetch origin "$target_branch" 2>&1)
+    if [ $? -ne 0 ]; then
+        echo -e "  ${COLOR_ERROR}Error al actualizar origin/${target_branch}:${COLOR_RESET}"
+        echo -e "  ${COLOR_ERROR}${fetch_err}${COLOR_RESET}"
+        echo -e "  ${COLOR_WARNING}Sin el fetch, los archivos del PR no estarán disponibles.${COLOR_RESET}"
+        echo -e -n "  ${COLOR_TEXT}¿Continuar de todos modos? (S/N): ${COLOR_RESET}"
+        read continuar_sin_fetch
+        if [[ ! "$continuar_sin_fetch" =~ ^[Ss]$ ]]; then
+            return 1
+        fi
+    else
+        echo -e "  ${COLOR_SUCCESS}✓ origin/${target_branch} actualizada${COLOR_RESET}"
+    fi
+
+    # Obtener archivos cambiados en el PR (antes de cambiar de rama)
+    echo ""
+    echo -e "  ${COLOR_INFO}Obteniendo archivos del PR...${COLOR_RESET}"
+
+    local archivos_pr
+    archivos_pr=$(git diff-tree --no-commit-id --name-only -r -m "$merge_commit" 2>/dev/null | sort -u)
+
+    if [ -z "$archivos_pr" ]; then
+        echo -e "  ${COLOR_WARNING}No se encontraron archivos en el PR${COLOR_RESET}"
+        return 1
+    fi
+
+    # Filtrar: solo archivos CORE (force-app/) y VLOCITY (vlocity/)
+    local filtered_files=""
+    local skipped_files=""
+    local num_filtered=0
+    local num_skipped=0
+
+    while IFS= read -r archivo; do
+        [ -z "$archivo" ] && continue
+        if [[ "$archivo" == force-app/* ]] || [[ "$archivo" == vlocity/* ]]; then
+            [ -n "$filtered_files" ] && filtered_files="${filtered_files}"$'\n'
+            filtered_files="${filtered_files}${archivo}"
+            num_filtered=$((num_filtered + 1))
+        else
+            [ -n "$skipped_files" ] && skipped_files="${skipped_files}"$'\n'
+            skipped_files="${skipped_files}${archivo}"
+            num_skipped=$((num_skipped + 1))
+        fi
+    done <<< "$archivos_pr"
+
+    if [ -z "$filtered_files" ]; then
+        echo -e "  ${COLOR_WARNING}Ningún archivo CORE o Vlocity en el PR${COLOR_RESET}"
+        return 1
+    fi
+
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}Componentes (CORE/Vlocity): ${COLOR_ACCENT}${num_filtered}${COLOR_RESET}"
+    if [ "$num_skipped" -gt 0 ]; then
+        echo -e "  ${COLOR_MUTED}Archivos ignorados (no CORE/Vlocity): ${num_skipped}${COLOR_RESET}"
+        echo "$skipped_files" | while IFS= read -r sf; do
+            [ -n "$sf" ] && echo -e "    ${COLOR_MUTED}• ${sf}${COLOR_RESET}"
+        done
+    fi
+
+    # Mostrar archivos a traer
+    echo ""
+    echo -e "  ${COLOR_INFO}Archivos a traer:${COLOR_RESET}"
+    echo "$filtered_files" | while IFS= read -r archivo; do
+        [ -n "$archivo" ] && echo -e "    ${COLOR_ACCENT}• ${archivo}${COLOR_RESET}"
+    done
+
+    # Confirmar
+    echo ""
+    echo -e "  ${COLOR_MUTED}─────────────────────────────────────────${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Rama actual:  ${COLOR_ACCENT}${rama_original}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Rama destino: ${COLOR_ACCENT}${rama_destino}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Archivos:     ${COLOR_ACCENT}${num_filtered}${COLOR_RESET}"
+    echo -e "  ${COLOR_MUTED}─────────────────────────────────────────${COLOR_RESET}"
+    echo ""
+    echo -e -n "  ${COLOR_TEXT}¿Ejecutar? Se cambiará a ${COLOR_ACCENT}${rama_destino}${COLOR_TEXT}, se hará commit y se volverá a ${COLOR_ACCENT}${rama_original}${COLOR_TEXT} (S/N): ${COLOR_RESET}"
+    read confirmar_checkout
+
+    if [[ ! "$confirmar_checkout" =~ ^[Ss]$ ]]; then
+        echo -e "  ${COLOR_MUTED}Operación cancelada${COLOR_RESET}"
+        return 0
+    fi
+
+    # ── Worktree temporal (NO cambia la rama actual) ──
+    local tmp_worktree
+    tmp_worktree=$(mktemp -d)
+    echo ""
+    echo -e "  ${COLOR_INFO}Preparando worktree temporal para ${COLOR_ACCENT}${rama_destino}${COLOR_INFO}...${COLOR_RESET}"
+
+    local wt_err
+    wt_err=$(git -C "$PROJECT_ROOT" worktree add "$tmp_worktree" "$rama_destino" 2>&1)
+    if [ $? -ne 0 ]; then
+        echo -e "  ${COLOR_ERROR}Error creando worktree: ${wt_err}${COLOR_RESET}"
+        rm -rf "$tmp_worktree"
+        return 1
+    fi
+    echo -e "  ${COLOR_SUCCESS}✓ Worktree creado (rama actual sin cambios)${COLOR_RESET}"
+
+    # ── Checkout de archivos desde merge commit en el worktree ──
+    echo -e "  ${COLOR_INFO}Trayendo archivos desde merge commit ${COLOR_ACCENT}${merge_commit:0:12}${COLOR_INFO}...${COLOR_RESET}"
+
+    local checkout_ok=0
+    local checkout_fail=0
+
+    while IFS= read -r archivo; do
+        [ -z "$archivo" ] && continue
+        local checkout_err
+        checkout_err=$(git -C "$tmp_worktree" checkout "$merge_commit" -- "$archivo" 2>&1)
+        if [ $? -eq 0 ]; then
+            checkout_ok=$((checkout_ok + 1))
+            echo -e "    ${COLOR_SUCCESS}✓ ${archivo}${COLOR_RESET}"
+        else
+            checkout_fail=$((checkout_fail + 1))
+            echo -e "    ${COLOR_WARNING}✗ ${archivo}${COLOR_RESET}"
+            echo -e "      ${COLOR_ERROR}${checkout_err}${COLOR_RESET}"
+        fi
+    done <<< "$filtered_files"
+
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}✓ ${checkout_ok} archivos traídos${COLOR_RESET}"
+    if [ "$checkout_fail" -gt 0 ]; then
+        echo -e "  ${COLOR_WARNING}  ${checkout_fail} archivos no encontrados${COLOR_RESET}"
+    fi
+
+    # ── Commit en el worktree ──
+    local commit_msg="Migrate: PR #${pr_id_input} - ${pr_title}"
+    echo ""
+    echo -e "  ${COLOR_INFO}Creando commit en ${COLOR_ACCENT}${rama_destino}${COLOR_INFO}...${COLOR_RESET}"
+    echo -e "  ${COLOR_MUTED}${commit_msg}${COLOR_RESET}"
+
+    git -C "$tmp_worktree" add -A 2>/dev/null
+    local commit_created=false
+    if git -C "$tmp_worktree" commit -m "$commit_msg" 2>/dev/null; then
+        echo -e "  ${COLOR_SUCCESS}✓ Commit creado en ${rama_destino}${COLOR_RESET}"
+        commit_created=true
+    else
+        echo -e "  ${COLOR_WARNING}No hay cambios para commitear (archivos ya existían)${COLOR_RESET}"
+    fi
+
+    # ── Push a origin ──
+    if [ "$commit_created" = true ]; then
+        echo ""
+        echo -e "  ${COLOR_INFO}Haciendo push a origin/${rama_destino}...${COLOR_RESET}"
+        local push_err
+        push_err=$(git -C "$tmp_worktree" push origin "$rama_destino" 2>&1)
+        if [ $? -eq 0 ]; then
+            echo -e "  ${COLOR_SUCCESS}✓ Push exitoso a origin/${rama_destino}${COLOR_RESET}"
+        else
+            echo -e "  ${COLOR_ERROR}Error en push: ${push_err}${COLOR_RESET}"
+            echo -e "  ${COLOR_WARNING}Puedes hacer push manual: git push origin ${rama_destino}${COLOR_RESET}"
+        fi
+    fi
+
+    # ── Limpiar worktree ──
+    echo ""
+    echo -e "  ${COLOR_INFO}Limpiando worktree temporal...${COLOR_RESET}"
+    git -C "$PROJECT_ROOT" worktree remove "$tmp_worktree" --force 2>/dev/null
+    rm -rf "$tmp_worktree" 2>/dev/null
+    git -C "$PROJECT_ROOT" worktree prune 2>/dev/null
+    echo -e "  ${COLOR_SUCCESS}✓ Worktree eliminado${COLOR_RESET}"
+
+    echo ""
+    echo -e "  ${COLOR_SUCCESS}${BOLD}╭───────────────────────────────────────╮${COLOR_RESET}"
+    echo -e "  ${COLOR_SUCCESS}${BOLD}│         Operación completada          │${COLOR_RESET}"
+    echo -e "  ${COLOR_SUCCESS}${BOLD}╰───────────────────────────────────────╯${COLOR_RESET}"
+    echo ""
+    echo -e "  ${COLOR_TEXT}PR:       ${COLOR_ACCENT}#${pr_id_input} - ${pr_title}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Commit:   ${COLOR_ACCENT}en rama ${rama_destino}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Archivos: ${COLOR_ACCENT}${checkout_ok} componentes${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Rama:     ${COLOR_ACCENT}${rama_original} (sin cambios)${COLOR_RESET}"
+}
+
+function _crear_commit_hacia_uat_PENDIENTE() {
+    # TODO: Implementar lógica cuando el usuario defina el flujo
+    local PROJECT_ROOT
+    PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
+    echo ""
+    echo -e "  ${TITLE}"
+    echo "  ╭───────────────────────────────────────╮"
+    echo "  │      Migrar componentes de un PR a otra rama       │"
+    echo "  ╰───────────────────────────────────────╯"
+    echo -e "  ${COLOR_RESET}"
+
+    # ── Fase 1: Actualizar UAT sin cambiar de rama ──
+    echo -e "  ${COLOR_INFO}Actualizando referencia de UAT...${COLOR_RESET}"
+    echo -e "  ${COLOR_MUTED}Ejecutando: git fetch origin uat${COLOR_RESET}"
+    if ! git fetch origin uat 2>/dev/null; then
+        echo -e "  ${COLOR_ERROR}Error al hacer fetch de UAT${COLOR_RESET}"
+        return 1
+    fi
+    echo -e "  ${COLOR_SUCCESS}✓ Referencia origin/uat actualizada${COLOR_RESET}"
+    echo ""
+
+    # ── Fase 1b: Seleccionar o crear rama acumulativa ──
+    echo -e "  ${COLOR_INFO}¿Rama acumulativa hacia UAT?${COLOR_RESET}"
+    echo ""
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Crear nueva rama (basada en origin/uat)"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Usar rama existente"
+    echo ""
+    echo -e "  ${MUTED}0.  Cancelar${COLOR_RESET}"
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+    read opcion_rama
+
+    case $opcion_rama in
+        0)
+            echo -e "  ${COLOR_MUTED}Operación cancelada${COLOR_RESET}"
+            return 0
+        ;;
+        1)
+            # Generar nombre sugerido con fecha y consecutivo
+            local fecha_hoy
+            fecha_hoy=$(date +%d%m%y)
+            local consecutivo=1
+            while git show-ref --verify --quiet "refs/heads/clone-banca-uat-${fecha_hoy}-$(printf '%02d' $consecutivo)" 2>/dev/null || \
+                  git ls-remote --heads origin "clone-banca-uat-${fecha_hoy}-$(printf '%02d' $consecutivo)" 2>/dev/null | grep -q .; do
+                consecutivo=$((consecutivo + 1))
+            done
+            local nombre_sugerido="clone-banca-uat-${fecha_hoy}-$(printf '%02d' $consecutivo)"
+
+            echo ""
+            echo -e "  ${COLOR_INFO}Nombre sugerido: ${COLOR_ACCENT}${nombre_sugerido}${COLOR_RESET}"
+            echo -e -n "  ${COLOR_TEXT}Presiona ENTER para aceptar o escribe otro nombre: ${COLOR_RESET}"
+            read nombre_custom
+
+            local nombre_rama="${nombre_custom:-$nombre_sugerido}"
+
+            echo ""
+            echo -e "  ${COLOR_INFO}Creando rama ${COLOR_ACCENT}${nombre_rama}${COLOR_INFO} basada en origin/uat...${COLOR_RESET}"
+
+            local git_err
+            git_err=$(git checkout -b "$nombre_rama" origin/uat 2>&1)
+            if [ $? -eq 0 ]; then
+                echo -e "  ${COLOR_SUCCESS}✓ Rama creada y activa: ${nombre_rama}${COLOR_RESET}"
+            else
+                if echo "$git_err" | grep -qi "overwritten\|conflict\|uncommitted\|local changes"; then
+                    echo -e "  ${COLOR_WARNING}Hay cambios locales que impiden el checkout.${COLOR_RESET}"
+                    echo -e "  ${COLOR_INFO}Guardando cambios temporalmente (git stash)...${COLOR_RESET}"
+                    git stash push -m "auto-stash: crear commit rama va a UAT" 2>/dev/null
+                    if git checkout -b "$nombre_rama" origin/uat 2>/dev/null; then
+                        echo -e "  ${COLOR_SUCCESS}✓ Rama creada y activa: ${nombre_rama}${COLOR_RESET}"
+                        echo -e "  ${COLOR_MUTED}  (cambios anteriores guardados en stash)${COLOR_RESET}"
+                    else
+                        echo -e "  ${COLOR_ERROR}Error al crear la rama${COLOR_RESET}"
+                        git stash pop 2>/dev/null
+                        return 1
+                    fi
+                else
+                    echo -e "  ${COLOR_ERROR}Error: ${git_err}${COLOR_RESET}"
+                    return 1
+                fi
+            fi
+        ;;
+        2)
+            echo ""
+            echo -e -n "  ${COLOR_TEXT}Nombre de la rama existente: ${COLOR_RESET}"
+            read nombre_rama
+
+            if [ -z "$nombre_rama" ]; then
+                echo -e "  ${COLOR_WARNING}No se ingresó nombre de rama${COLOR_RESET}"
+                return 1
+            fi
+
+            local checkout_cmd=""
+            if git show-ref --verify --quiet "refs/heads/$nombre_rama" 2>/dev/null; then
+                echo -e "  ${COLOR_INFO}Cambiando a rama ${COLOR_ACCENT}${nombre_rama}${COLOR_RESET}..."
+                checkout_cmd="git checkout $nombre_rama"
+            else
+                echo -e "  ${COLOR_INFO}Rama no encontrada localmente, buscando en remoto...${COLOR_RESET}"
+                if git ls-remote --heads origin "$nombre_rama" 2>/dev/null | grep -q .; then
+                    checkout_cmd="git checkout -b $nombre_rama origin/$nombre_rama"
+                else
+                    echo -e "  ${COLOR_ERROR}Rama '${nombre_rama}' no existe local ni remotamente${COLOR_RESET}"
+                    return 1
+                fi
+            fi
+
+            local git_err
+            git_err=$(eval "$checkout_cmd" 2>&1)
+            if [ $? -eq 0 ]; then
+                echo -e "  ${COLOR_SUCCESS}✓ Rama activa: ${nombre_rama}${COLOR_RESET}"
+            else
+                if echo "$git_err" | grep -qi "overwritten\|conflict\|uncommitted\|local changes"; then
+                    echo -e "  ${COLOR_WARNING}Hay cambios locales que impiden el checkout.${COLOR_RESET}"
+                    echo -e "  ${COLOR_INFO}Guardando cambios temporalmente (git stash)...${COLOR_RESET}"
+                    git stash push -m "auto-stash: crear commit rama va a UAT" 2>/dev/null
+                    if eval "$checkout_cmd" 2>/dev/null; then
+                        echo -e "  ${COLOR_SUCCESS}✓ Rama activa: ${nombre_rama}${COLOR_RESET}"
+                        echo -e "  ${COLOR_MUTED}  (cambios anteriores guardados en stash)${COLOR_RESET}"
+                    else
+                        echo -e "  ${COLOR_ERROR}Error al cambiar de rama${COLOR_RESET}"
+                        git stash pop 2>/dev/null
+                        return 1
+                    fi
+                else
+                    echo -e "  ${COLOR_ERROR}Error: ${git_err}${COLOR_RESET}"
+                    return 1
+                fi
+            fi
+
+            # Preguntar si desea actualizar con lo último de UAT
+            echo ""
+            echo -e "  ${COLOR_INFO}¿Deseas actualizar esta rama con lo último de UAT?${COLOR_RESET}"
+            echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}(S/N): ${COLOR_RESET}"
+            read actualizar_uat
+
+            if [[ "$actualizar_uat" =~ ^[Ss]$ ]]; then
+                echo -e "  ${COLOR_INFO}Actualizando con origin/uat...${COLOR_RESET}"
+                if git merge origin/uat --no-edit 2>/dev/null; then
+                    echo -e "  ${COLOR_SUCCESS}✓ Rama actualizada con UAT${COLOR_RESET}"
+                else
+                    echo -e "  ${COLOR_ERROR}Conflictos al actualizar con UAT. Resuelve manualmente.${COLOR_RESET}"
+                    git merge --abort 2>/dev/null
+                    return 1
+                fi
+            fi
+        ;;
+        *)
+            echo -e "  ${COLOR_WARNING}Opción inválida${COLOR_RESET}"
+            return 1
+        ;;
+    esac
+
+    # ── Fase 2: Cherry-pick del PR ──
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo ""
+    echo -e -n "  ${COLOR_TEXT}Ingrese el ID del Pull Request: ${COLOR_RESET}"
+    read pr_id_input
+
+    if [ -z "$pr_id_input" ]; then
+        echo -e "  ${COLOR_WARNING}No se ingresó PR ID${COLOR_RESET}"
+        return 1
+    fi
+
+    echo ""
+    echo -e "  ${COLOR_INFO}Obteniendo información del PR #${pr_id_input}...${COLOR_RESET}"
+
+    local pr_info
+    pr_info=$(az repos pr show --id "$pr_id_input" --query "{title: title, status: status, mergeCommitId: lastMergeCommit.commitId, sourceBranch: sourceRefName, targetBranch: targetRefName}" -o json 2>/dev/null)
+
+    if [ $? -ne 0 ] || [ -z "$pr_info" ]; then
+        echo -e "  ${COLOR_ERROR}Error al obtener info del PR. Verifica el ID y tu autenticación en Azure.${COLOR_RESET}"
+        return 1
+    fi
+
+    local pr_title
+    pr_title=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('title',''))" 2>/dev/null)
+    local pr_status
+    pr_status=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+    local merge_commit
+    merge_commit=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('mergeCommitId',''))" 2>/dev/null)
+    local source_branch
+    source_branch=$(echo "$pr_info" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sourceBranch','').replace('refs/heads/',''))" 2>/dev/null)
+
+    echo -e "  ${COLOR_MUTED}─────────────────────────────────────────${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Título:  ${COLOR_ACCENT}${pr_title}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Estado:  ${COLOR_ACCENT}${pr_status}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Rama:    ${COLOR_ACCENT}${source_branch}${COLOR_RESET}"
+    echo -e "  ${COLOR_TEXT}Commit:  ${COLOR_ACCENT}${merge_commit:0:12}${COLOR_RESET}"
+    echo -e "  ${COLOR_MUTED}─────────────────────────────────────────${COLOR_RESET}"
+
+    if [ -z "$merge_commit" ] || [ "$merge_commit" = "None" ]; then
+        echo -e "  ${COLOR_ERROR}El PR no tiene merge commit. ¿Está completado?${COLOR_RESET}"
+        return 1
+    fi
+
+    # Fetch para asegurar que el commit esté disponible
+    echo ""
+    echo -e "  ${COLOR_INFO}Descargando commits...${COLOR_RESET}"
+    git fetch origin 2>/dev/null
+
+    # Cherry-pick con --no-commit para poder agregar manifests
+    echo -e "  ${COLOR_INFO}Aplicando cherry-pick del commit ${merge_commit:0:12}...${COLOR_RESET}"
+
+    if git cherry-pick --no-commit "$merge_commit" 2>/dev/null; then
+        echo -e "  ${COLOR_SUCCESS}✓ Cherry-pick aplicado exitosamente${COLOR_RESET}"
+    else
+        local conflictos
+        conflictos=$(git diff --name-only --diff-filter=U 2>/dev/null)
+        if [ -n "$conflictos" ]; then
+            echo ""
+            echo -e "  ${COLOR_ERROR}Conflictos detectados en:${COLOR_RESET}"
+            echo "$conflictos" | while IFS= read -r archivo; do
+                echo -e "    ${COLOR_WARNING}• ${archivo}${COLOR_RESET}"
+            done
+            echo ""
+            echo -e "  ${COLOR_ERROR}Abortando cherry-pick. Resuelve los conflictos manualmente.${COLOR_RESET}"
+            git cherry-pick --abort 2>/dev/null
+            return 1
+        else
+            echo -e "  ${COLOR_ERROR}Error al aplicar cherry-pick${COLOR_RESET}"
+            git cherry-pick --abort 2>/dev/null
+            return 1
+        fi
+    fi
+
+    # ── Fase 3: Actualizar manifests automáticamente ──
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e "  ${COLOR_INFO}${BOLD}Actualizando manifests...${COLOR_RESET}"
+    echo ""
+
+    local core_nuevos=0
+    local vlocity_nuevos=0
+
+    # --- CORE: package.xml ---
+    local archivos_core
+    archivos_core=$(git diff --cached --name-only 2>/dev/null | grep "^force-app/" || true)
+
+    if [ -n "$archivos_core" ]; then
+        echo -e "  ${COLOR_INFO}Generando delta CORE...${COLOR_RESET}"
+
+        local delta_dir="/tmp/sgd-delta-$$"
+        rm -rf "$delta_dir"
+        mkdir -p "$delta_dir"
+
+        cd "$PROJECT_ROOT" || return 1
+
+        if sf sgd source delta --to "$merge_commit" --from HEAD --output-dir "$delta_dir" 2>/dev/null; then
+            if [ -f "$delta_dir/package/package.xml" ]; then
+                echo -e "  ${COLOR_INFO}Merging CORE en ${MANIFEST_DIR}/${XML_COMPONENTES}...${COLOR_RESET}"
+
+                local merge_output
+                merge_output=$(python3 scripts/pr_commit_report.py --merge-manifest ${MANIFEST_DIR}/${XML_COMPONENTES} "$delta_dir/package/package.xml" 2>/dev/null)
+
+                core_nuevos=$(echo "$merge_output" | grep "MEMBERS_NUEVOS=" | cut -d= -f2)
+                local total_core
+                total_core=$(echo "$merge_output" | grep "TOTAL_MEMBERS=" | cut -d= -f2)
+
+                echo -e "  ${COLOR_SUCCESS}✓ CORE: ${core_nuevos:-0} componentes nuevos (total: ${total_core:-0})${COLOR_RESET}"
+                git add ${MANIFEST_DIR}/${XML_COMPONENTES} 2>/dev/null
+            else
+                echo -e "  ${COLOR_MUTED}  No se generó delta CORE${COLOR_RESET}"
+            fi
+        else
+            echo -e "  ${COLOR_WARNING}  sgd no pudo generar delta, usando método alternativo...${COLOR_RESET}"
+
+            local temp_pkg="/tmp/cherry-pick-delta-$$.xml"
+            echo '<?xml version="1.0" encoding="UTF-8"?>' > "$temp_pkg"
+            echo '<Package xmlns="http://soap.sforce.com/2006/04/metadata">' >> "$temp_pkg"
+
+            declare -A tipo_members
+            while IFS= read -r archivo; do
+                local rel_path="${archivo#force-app/main/default/}"
+                local tipo_dir="${rel_path%%/*}"
+
+                case "$tipo_dir" in
+                    classes) tipo_members["ApexClass"]+="$(basename "$archivo" .cls | sed 's/\.cls-meta//')|" ;;
+                    triggers) tipo_members["ApexTrigger"]+="$(basename "$archivo" .trigger | sed 's/\.trigger-meta//')|" ;;
+                    lwc) local comp_name=$(echo "$rel_path" | cut -d'/' -f2); tipo_members["LightningComponentBundle"]+="${comp_name}|" ;;
+                    aura) local comp_name=$(echo "$rel_path" | cut -d'/' -f2); tipo_members["AuraDefinitionBundle"]+="${comp_name}|" ;;
+                    flows) tipo_members["Flow"]+="$(basename "$archivo" .flow-meta.xml)|" ;;
+                    flexipages) tipo_members["FlexiPage"]+="$(basename "$archivo" .flexipage-meta.xml)|" ;;
+                    objects)
+                        local obj_name=$(echo "$rel_path" | cut -d'/' -f2)
+                        local sub_dir=$(echo "$rel_path" | cut -d'/' -f3)
+                        case "$sub_dir" in
+                            fields) tipo_members["CustomField"]+="${obj_name}.$(basename "$archivo" .field-meta.xml)|" ;;
+                            validationRules) tipo_members["ValidationRule"]+="${obj_name}.$(basename "$archivo" .validationRule-meta.xml)|" ;;
+                            recordTypes) tipo_members["RecordType"]+="${obj_name}.$(basename "$archivo" .recordType-meta.xml)|" ;;
+                            listViews) tipo_members["ListView"]+="${obj_name}.$(basename "$archivo" .listView-meta.xml)|" ;;
+                            *) tipo_members["CustomObject"]+="${obj_name}|" ;;
+                        esac
+                    ;;
+                    permissionsets) tipo_members["PermissionSet"]+="$(basename "$archivo" .permissionset-meta.xml)|" ;;
+                    layouts) tipo_members["Layout"]+="$(basename "$archivo" .layout-meta.xml)|" ;;
+                    customMetadata) tipo_members["CustomMetadata"]+="$(basename "$archivo" .md-meta.xml)|" ;;
+                    labels) tipo_members["CustomLabel"]+="CustomLabels|" ;;
+                    staticresources) tipo_members["StaticResource"]+="$(basename "$archivo" | sed 's/\..*$//')|" ;;
+                    tabs) tipo_members["CustomTab"]+="$(basename "$archivo" .tab-meta.xml)|" ;;
+                    profiles) tipo_members["Profile"]+="$(basename "$archivo" .profile-meta.xml)|" ;;
+                    remoteSiteSettings) tipo_members["RemoteSiteSetting"]+="$(basename "$archivo" .remoteSite-meta.xml)|" ;;
+                    namedCredentials) tipo_members["NamedCredential"]+="$(basename "$archivo" .namedCredential-meta.xml)|" ;;
+                    queues) tipo_members["Queue"]+="$(basename "$archivo" .queue-meta.xml)|" ;;
+                esac
+            done <<< "$archivos_core"
+
+            for tipo in "${!tipo_members[@]}"; do
+                echo "    <types>" >> "$temp_pkg"
+                echo "${tipo_members[$tipo]}" | tr '|' '\n' | sort -u | while IFS= read -r member; do
+                    [ -n "$member" ] && echo "        <members>${member}</members>" >> "$temp_pkg"
+                done
+                echo "        <name>${tipo}</name>" >> "$temp_pkg"
+                echo "    </types>" >> "$temp_pkg"
+            done
+
+            echo '    <version>65.0</version>' >> "$temp_pkg"
+            echo '</Package>' >> "$temp_pkg"
+
+            local merge_output
+            merge_output=$(python3 scripts/pr_commit_report.py --merge-manifest ${MANIFEST_DIR}/${XML_COMPONENTES} "$temp_pkg" 2>/dev/null)
+            core_nuevos=$(echo "$merge_output" | grep "MEMBERS_NUEVOS=" | cut -d= -f2)
+            local total_core
+            total_core=$(echo "$merge_output" | grep "TOTAL_MEMBERS=" | cut -d= -f2)
+
+            echo -e "  ${COLOR_SUCCESS}✓ CORE: ${core_nuevos:-0} componentes nuevos (total: ${total_core:-0})${COLOR_RESET}"
+            git add ${MANIFEST_DIR}/${XML_COMPONENTES} 2>/dev/null
+
+            rm -f "$temp_pkg"
+        fi
+
+        rm -rf "$delta_dir"
+    else
+        echo -e "  ${COLOR_MUTED}  Sin cambios CORE en este PR${COLOR_RESET}"
+    fi
+
+    # --- VLOCITY: package.yaml ---
+    local archivos_vlocity
+    archivos_vlocity=$(git diff --cached --name-only 2>/dev/null | grep "^vlocity/" || true)
+
+    if [ -n "$archivos_vlocity" ]; then
+        echo ""
+        echo -e "  ${COLOR_INFO}Actualizando manifest Vlocity...${COLOR_RESET}"
+
+        local nuevos_componentes=()
+        local componentes_vistos=()
+
+        while IFS= read -r archivo; do
+            local vlocity_path="${archivo#vlocity/}"
+            local vtype="${vlocity_path%%/*}"
+            local rest="${vlocity_path#*/}"
+            local vname="${rest%%/*}"
+
+            if [ -n "$vtype" ] && [ -n "$vname" ]; then
+                local comp_key="${vtype}/${vname}"
+                local ya_visto=false
+                for v in "${componentes_vistos[@]}"; do
+                    [ "$v" = "$comp_key" ] && ya_visto=true && break
+                done
+                if [ "$ya_visto" = false ]; then
+                    componentes_vistos+=("$comp_key")
+                    nuevos_componentes+=("$comp_key")
+                fi
+            fi
+        done <<< "$archivos_vlocity"
+
+        local yaml_path="${PROJECT_ROOT}/${MANIFEST_DIR}/${YAML_COMPONENTES}"
+        local existentes=()
+        if [ -f "$yaml_path" ]; then
+            while IFS= read -r line; do
+                local stripped=$(echo "$line" | sed 's/^[[:space:]]*//')
+                if [[ "$stripped" == -\ * ]]; then
+                    local comp="${stripped#- }"
+                    comp=$(echo "$comp" | sed 's/#.*//' | sed 's/[[:space:]]*$//')
+                    if [[ "$comp" == */* ]] && [ "$comp" != "xxx" ]; then
+                        existentes+=("$comp")
+                    fi
+                fi
+            done < "$yaml_path"
+        fi
+
+        local realmente_nuevos=()
+        for nuevo in "${nuevos_componentes[@]}"; do
+            local es_existente=false
+            for existente in "${existentes[@]}"; do
+                [ "$existente" = "$nuevo" ] && es_existente=true && break
+            done
+            if [ "$es_existente" = false ]; then
+                realmente_nuevos+=("$nuevo")
+            fi
+        done
+
+        local todos_componentes=()
+        for c in "${existentes[@]}"; do
+            todos_componentes+=("$c")
+        done
+        for c in "${realmente_nuevos[@]}"; do
+            todos_componentes+=("$c")
+        done
+
+        local sorted_components
+        sorted_components=$(printf '%s\n' "${todos_componentes[@]}" | sort -u)
+
+        local vlocity_entries=""
+        while IFS= read -r comp; do
+            [ -n "$comp" ] && vlocity_entries+="    - ${comp}\n"
+        done <<< "$sorted_components"
+
+        printf "projectPath: .\nexpansionPath: ./vlocity/\nmanifest:\n${vlocity_entries}\ndelete: true\nactivate: true\ncompileOnBuild: true\nmaxDepth: 0\ncontinueAfterError: true\nuseAllRelationships: false\nsupportHeadersOnly: true\nsupportForceDeploy: true\nverbose: false\ndeltaGeneration: false\n" > "$yaml_path"
+
+        vlocity_nuevos=${#realmente_nuevos[@]}
+        local total_vlocity
+        total_vlocity=$(echo "$sorted_components" | grep -c ".")
+
+        echo -e "  ${COLOR_SUCCESS}✓ VLOCITY: ${vlocity_nuevos} componentes nuevos (total: ${total_vlocity})${COLOR_RESET}"
+        git add ${MANIFEST_DIR}/${YAML_COMPONENTES} 2>/dev/null
+    else
+        echo -e "  ${COLOR_MUTED}  Sin cambios Vlocity en este PR${COLOR_RESET}"
+    fi
+
+    # ── Fase 4: Commit y resumen ──
+    echo ""
+    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo ""
+
+    local commit_msg="Migrate: PR #${pr_id_input} - ${pr_title}"
+
+    echo -e "  ${COLOR_INFO}Creando commit...${COLOR_RESET}"
+    echo -e "  ${COLOR_MUTED}${commit_msg}${COLOR_RESET}"
+
+    if git commit -m "$commit_msg" 2>/dev/null; then
+        echo ""
+        echo -e "  ${COLOR_SUCCESS}${BOLD}╭───────────────────────────────────────╮${COLOR_RESET}"
+        echo -e "  ${COLOR_SUCCESS}${BOLD}│     Commit creado exitosamente        │${COLOR_RESET}"
+        echo -e "  ${COLOR_SUCCESS}${BOLD}╰───────────────────────────────────────╯${COLOR_RESET}"
+        echo ""
+        echo -e "  ${COLOR_TEXT}PR:       ${COLOR_ACCENT}#${pr_id_input} - ${pr_title}${COLOR_RESET}"
+        echo -e "  ${COLOR_TEXT}Rama:     ${COLOR_ACCENT}$(git branch --show-current)${COLOR_RESET}"
+        echo -e "  ${COLOR_TEXT}CORE:     ${COLOR_ACCENT}${core_nuevos:-0} componentes nuevos${COLOR_RESET}"
+        echo -e "  ${COLOR_TEXT}Vlocity:  ${COLOR_ACCENT}${vlocity_nuevos:-0} componentes nuevos${COLOR_RESET}"
+        echo ""
+
+        echo -e -n "  ${COLOR_TEXT}¿Deseas hacer push de la rama? (S/N): ${COLOR_RESET}"
+        read hacer_push
+        if [[ "$hacer_push" =~ ^[Ss]$ ]]; then
+            local rama_actual
+            rama_actual=$(git branch --show-current)
+            echo -e "  ${COLOR_INFO}Ejecutando: git push origin ${rama_actual}${COLOR_RESET}"
+            if git push origin "$rama_actual" 2>/dev/null; then
+                echo -e "  ${COLOR_SUCCESS}✓ Push realizado exitosamente${COLOR_RESET}"
+            else
+                echo -e "  ${COLOR_WARNING}Error al hacer push. Intenta manualmente.${COLOR_RESET}"
+            fi
+        fi
+    else
+        echo -e "  ${COLOR_ERROR}Error al crear el commit${COLOR_RESET}"
+        return 1
+    fi
+}
+
+# Loop de selección de proyecto
+while :
+do
+    mostrar_menu_proyecto
+    read proyecto_sel
+
+    case $proyecto_sel in
+        1) configurar_banca ;;
+        2) configurar_viajes ;;
+        3) configurar_banca_nequi ;;
+        [Ee])
+            cd "$(dirname "${BASH_SOURCE[0]}")"
+            echo "SALIENDO DEL SCRIPT..."
+            sleep 1
+            clear
+            break
+        ;;
+        *)
+            echo "OPCIÓN INVÁLIDA..."
+            sleep 1
+            continue
+        ;;
+    esac
+
+    # Menú principal (según proyecto seleccionado)
+    while :
+    do
+        mostrar_menu_principal
+        read categoria
+
+        case $categoria in
+            0)
+                break # Volver a selección de proyecto
+            ;;
+        1) # Metadata CORE
+            while :
+            do
+                mostrar_menu_xml
+                read opcion_xml
+
+                case $opcion_xml in
+                    0)
+                        break # Volver al menú principal
+                    ;;
+                    1) # Retrieve XML
+                        seleccionar_org_origen
+                        if [ -z "$ORG_ORIGEN" ]; then
+                            continue
+                        fi
+                        echo "INICIA PROCESO RETRIEVE XML...\n"
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd ..
+                        sf project retrieve start --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_ORIGEN} --ignore-conflicts
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    2) # Run test deploy XML
+                        # Submenú de tipo de validación
+                        echo -e "${COLOR_INFO}${COLOR_BOLD}"
+                        echo "╔═══════════════════════════════════════════════╗"
+                        echo "║      Tipo de Validación - Metadata CORE       ║"
+                        echo "╚═══════════════════════════════════════════════╝"
+                        echo -e "${COLOR_INFO}╔═══════════════════════════════════════════════╗${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_ACCENT}1.${COLOR_RESET} ${COLOR_TEXT}Rápida (Sandbox)${COLOR_RESET}                          ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}     ${COLOR_MUTED}Sin tests - Validación rápida${COLOR_RESET}             ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_ACCENT}2.${COLOR_RESET} ${COLOR_TEXT}Exhaustiva (Producción)${COLOR_RESET}                   ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}     ${COLOR_MUTED}Con tests - Listo para PROD${COLOR_RESET}               ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_ACCENT}3.${COLOR_RESET} ${COLOR_TEXT}Con Clases Apex Específicas${COLOR_RESET}               ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}     ${COLOR_MUTED}Ejecuta tests específicos${COLOR_RESET}                 ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_SUCCESS}0. Volver${COLOR_RESET}                                    ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}╚═══════════════════════════════════════════════╝${COLOR_RESET}"
+                        echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Seleccione tipo de validación:${COLOR_RESET} "
+                        read tipo_validacion
+
+                        case $tipo_validacion in
+                            0)
+                                continue
+                            ;;
+                            1) # Validación Rápida (Sandbox)
+                                seleccionar_org_destino_sandbox
+                                if [ -z "$ORG_DESTINO" ]; then
+                                    continue
+                                fi
+                                # Confirmación
+                                local org_name=$(get_org_name "$ORG_DESTINO")
+                                mostrar_confirmacion "VALIDATE" "CORE" "$org_name" "WARNING" "Solo lectura • Sin tests"
+                                echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
+                                read confirmacion
+
+                                if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                                    echo "Validación cancelada. Volviendo al menú..."
+                                    sleep 1
+                                    continue
+                                fi
+
+                                echo "INICIA VALIDACIÓN RÁPIDA DE METADATA CORE...\n"
+                                sf config set target-org=${ORG_DESTINO}
+                                cd ..
+                                local LOG_FILE="scripts/log_validated_deployment"
+                                local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                                {
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "  CORE DEPLOYMENT LOG - VALIDATE (Quick/Dry-Run)"
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
+                                    echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
+                                    echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
+                                    echo "  Modo:      Dry-Run (sin tests)"
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo ""
+                                } > "$LOG_FILE"
+                                sf deploy metadata --dry-run --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} --ignore-conflicts 2>&1 | tee -a "$LOG_FILE"
+                                cd scripts/
+                                echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
+                                echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                                read foo
+                            ;;
+                            2) # Validación Exhaustiva (Producción)
+                                seleccionar_org_destino_produccion
+                                if [ -z "$ORG_DESTINO" ]; then
+                                    continue
+                                fi
+                                # Confirmación
+                                mostrar_confirmacion "VALIDATE" "CORE" "PROD" "ERROR" "Ejecutando con tests"
+                                echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
+                                read confirmacion
+
+                                if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                                    echo "Validación cancelada. Volviendo al menú..."
+                                    sleep 1
+                                    continue
+                                fi
+
+                                echo "INICIA VALIDACIÓN EXHAUSTIVA DE METADATA CORE...\n"
+                                sf config set target-org=${ORG_DESTINO}
+                                cd ..
+                                local LOG_FILE="scripts/log_validated_deployment"
+                                local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                                {
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "  CORE DEPLOYMENT LOG - VALIDATE (Exhaustive/Production)"
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
+                                    echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
+                                    echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
+                                    echo "  Modo:      Validate con RunLocalTests"
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo ""
+                                } > "$LOG_FILE"
+                                sf project deploy validate --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} 2>&1 | tee -a "$LOG_FILE"
+                                cd scripts/
+                                echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
+                                echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                                read foo
+                            ;;
+                            3) # Con Clases Apex Específicas
+                                # Array para almacenar las clases de test
+                                test_classes_array=()
+
+                                echo -e "\n${COLOR_INFO}${COLOR_BOLD}╔═══════════════════════════════════════════════════╗"
+                                echo -e "║      Configuración de Clases Apex de Test        ║"
+                                echo -e "╚═══════════════════════════════════════════════════╝${COLOR_RESET}"
+                                echo -e "${COLOR_MUTED}Ingrese las clases de test una por una${COLOR_RESET}\n"
+
+                                # Bucle para agregar clases
+                                while true; do
+                                    # Mostrar clases agregadas hasta el momento
+                                    if [ ${#test_classes_array[@]} -gt 0 ]; then
+                                        echo -e "${COLOR_SUCCESS}Clases agregadas (${#test_classes_array[@]}):${COLOR_RESET}"
+                                        for i in "${!test_classes_array[@]}"; do
+                                            echo -e "  ${COLOR_ACCENT}$((i+1)).${COLOR_RESET} ${test_classes_array[$i]}"
+                                        done
+                                        echo ""
+                                    fi
+
+                                    # Pedir nombre de la clase
+                                    echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Ingrese el nombre de la clase de test:${COLOR_RESET}"
+                                    echo -e "${COLOR_MUTED}  (Ejemplo: SURASaludCitiesRouteTest)${COLOR_RESET}"
+                                    read class_name
+
+                                    # Validar que no esté vacío
+                                    if [ -n "$class_name" ]; then
+                                        # Agregar al array
+                                        test_classes_array+=("$class_name")
+                                        echo -e "${COLOR_SUCCESS}✓ Clase agregada: ${class_name}${COLOR_RESET}\n"
+
+                                        # Preguntar si desea agregar otra clase
+                                        echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea agregar otra clase? (S/N):${COLOR_RESET} "
+                                        read agregar_otra
+
+                                        if [[ ! "$agregar_otra" =~ ^[Ss]$ ]]; then
+                                            break
+                                        fi
+                                        echo ""
+                                    else
+                                        # Si no ingresó nada y ya hay clases, preguntar si desea continuar
+                                        if [ ${#test_classes_array[@]} -gt 0 ]; then
+                                            echo -e "${COLOR_WARNING}No se ingresó ninguna clase.${COLOR_RESET}"
+                                            echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar agregando clases? (S/N):${COLOR_RESET} "
+                                            read continuar
+
+                                            if [[ ! "$continuar" =~ ^[Ss]$ ]]; then
+                                                break
+                                            fi
+                                            echo ""
+                                        fi
+                                    fi
+                                done
+
+                                # Validar que se haya agregado al menos una clase
+                                if [ ${#test_classes_array[@]} -eq 0 ]; then
+                                    echo -e "${COLOR_WARNING}No se ingresaron clases de test. Volviendo al menú...${COLOR_RESET}"
+                                    sleep 2
+                                    continue
+                                fi
+
+                                # Convertir array a string separado por espacios
+                                test_classes="${test_classes_array[*]}"
+
+                                seleccionar_org_destino_sandbox
+                                if [ -z "$ORG_DESTINO" ]; then
+                                    continue
+                                fi
+
+                                # Confirmación
+                                local org_name=$(get_org_name "$ORG_DESTINO")
+                                mostrar_confirmacion "VALIDATE" "CORE" "$org_name" "WARNING" "Con tests específicos"
+                                echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
+                                read confirmacion
+
+                                if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                                    echo "Validación cancelada. Volviendo al menú..."
+                                    sleep 1
+                                    continue
+                                fi
+
+                                echo "INICIA VALIDACIÓN CON TESTS ESPECÍFICOS...\n"
+                                sf config set target-org=${ORG_DESTINO}
+                                cd ..
+                                local LOG_FILE="scripts/log_validated_deployment"
+                                local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                                {
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "  CORE DEPLOYMENT LOG - VALIDATE (Specified Tests)"
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
+                                    echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
+                                    echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
+                                    echo "  Modo:      RunSpecifiedTests"
+                                    echo "  Tests:     ${test_classes}"
+                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo ""
+                                } > "$LOG_FILE"
+                                sf project deploy validate --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --test-level RunSpecifiedTests --tests ${test_classes} --target-org ${ORG_DESTINO} 2>&1 | tee -a "$LOG_FILE"
+                                cd scripts/
+                                echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
+                                echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                                read foo
+                            ;;
+                            *)
+                                echo "OPCIÓN INVÁLIDA..."
+                                sleep 1
+                            ;;
+                        esac
+                    ;;
+                    3) # Run deploy XML
+                        seleccionar_org_destino
+                        if [ -z "$ORG_DESTINO" ]; then
+                            continue
+                        fi
+
+                        # Confirmación
+                        local org_name=$(get_org_name "$ORG_DESTINO")
+                        # Determinar mensaje según ambiente
+                        local desc_deploy="Ejecutando deploy a sandbox"
+                        if [[ "$org_name" == "PROD" ]]; then
+                            desc_deploy="Ejecutando con tests"
+                        fi
+                        mostrar_confirmacion "DEPLOY" "CORE" "$org_name" "ERROR" "$desc_deploy"
+                        echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Confirma el despliegue? (S/N):${COLOR_RESET} "
+                        read confirmacion
+
+                        if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                            echo "Despliegue cancelado. Volviendo al menú..."
+                            sleep 1
+                            continue
+                        fi
+
+                        echo "INICIA DESPLIEGUE DE METADATA CORE...\n"
+                        sf config set target-org=${ORG_DESTINO}
+                        cd ..
+                        local LOG_FILE="scripts/log_validated_deployment"
+                        local ORG_NAME=$(get_org_name "$ORG_DESTINO")
+                        {
+                            echo "════════════════════════════════════════════════════════════════"
+                            echo "  CORE DEPLOYMENT LOG - DEPLOY"
+                            echo "════════════════════════════════════════════════════════════════"
+                            echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
+                            echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
+                            echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
+                            echo "  Modo:      Deploy real"
+                            echo "════════════════════════════════════════════════════════════════"
+                            echo ""
+                        } > "$LOG_FILE"
+                        sf deploy metadata --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} --ignore-conflicts 2>&1 | tee -a "$LOG_FILE"
+                        cd scripts/
+                        echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
+
+                        # Si es la org de tracking (SITBANCA/SITVIAJES), ofrecer guardar en tracking
+                        if [[ "$ORG_DESTINO" = "$ORG_TRACKING_TRIGGER" ]]; then
+                            guardar_tracking_componentes "${MANIFEST_DIR}/${XML_COMPONENTES}" "CORE"
+                            # Si se guardó el tracking, ofrecer aprobar/completar PR en Azure
+                            if [ -n "$ULTIMO_PR_ID" ]; then
+                                aprobar_completar_pr_azure "$ULTIMO_PR_ID"
+                                ULTIMO_PR_ID=""  # Limpiar variable
+                            fi
+                        fi
+
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    4) # Run validate destructive XML
+                        seleccionar_org_destino
+                        if [ -z "$ORG_DESTINO" ]; then
+                            continue
+                        fi
+                        echo "INICIA VALIDATE DESTRUCTIVE XML...\n"
+                        sf config set target-org=${ORG_DESTINO}
+                        cd ..
+                        sf deploy metadata --metadata-dir itemToDelete/ --target-org ${ORG_DESTINO} --wait 10 --dry-run #Valida antes de borrar
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    5) # Run destructive XML
+                        seleccionar_org_destino
+                        if [ -z "$ORG_DESTINO" ]; then
+                            continue
+                        fi
+                        echo "INICIA DESTRUCTIVE XML...\n"
+                        sf config set target-org=${ORG_DESTINO}
+                        cd ..
+                        sf deploy metadata --metadata-dir itemToDelete/ --target-org ${ORG_DESTINO} --wait 10 #Valida antes de borrar
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    *)
+                        echo "OPCIÓN INVÁLIDA..."
+                        sleep 1
+                    ;;
+                esac
+            done
+        ;;
+        2) # Metadata VLOCITY
+            while :
+            do
+                mostrar_menu_yaml
+                read opcion_yaml
+
+                case $opcion_yaml in
+                    0)
+                        break # Volver al menú principal
+                    ;;
+                    1) # Retrieve YAML
+                        seleccionar_org_origen
+                        if [ -z "$ORG_ORIGEN" ]; then
+                            continue
+                        fi
+                        echo "INICIA PROCESO RETRIEVE YAML...\n"
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd ..
+                        vlocity -sfdx.username ${ORG_ORIGEN} -job ${MANIFEST_DIR}/${YAML_COMPONENTES} packExport
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    2) # Deploy YAML
+                        seleccionar_org_destino
+                        if [ -z "$ORG_DESTINO" ]; then
+                            continue
+                        fi
+
+                        # Confirmación
+                        local org_name=$(get_org_name "$ORG_DESTINO")
+                        mostrar_confirmacion "DEPLOY" "VLOCITY" "$org_name" "ERROR" "Ejecutando deploy"
+                        echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Confirma el despliegue? (S/N):${COLOR_RESET} "
+                        read confirmacion
+
+                        if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                            echo "Despliegue cancelado. Volviendo al menú..."
+                            sleep 1
+                            continue
+                        fi
+
+                        echo "INICIA DESPLIEGUE DE METADATA VLOCITY...\n"
+                        sf config set target-org=${ORG_DESTINO}
+                        cd ..
+                        vlocity -sfdx.username ${ORG_DESTINO} -job ${MANIFEST_DIR}/${YAML_COMPONENTES} packDeploy
+                        cd scripts/
+
+                        # Si es la org de tracking (SITBANCA/SITVIAJES), ofrecer guardar en tracking
+                        if [[ "$ORG_DESTINO" = "$ORG_TRACKING_TRIGGER" ]]; then
+                            guardar_tracking_componentes_yaml "${MANIFEST_DIR}/${YAML_COMPONENTES}" "VLOCITY"
+                            # Si se guardó el tracking, ofrecer aprobar/completar PR en Azure
+                            if [ -n "$ULTIMO_PR_ID" ]; then
+                                aprobar_completar_pr_azure "$ULTIMO_PR_ID"
+                                ULTIMO_PR_ID=""  # Limpiar variable
+                            fi
+                        fi
+
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    *)
+                        echo "OPCIÓN INVÁLIDA..."
+                        sleep 1
+                    ;;
+                esac
+            done
+        ;;
+        3) # Export List
+            while :
+            do
+                mostrar_menu_export
+                read opcion_export
+
+                case $opcion_export in
+                    0)
+                        break # Volver al menú principal
+                    ;;
+                    1) # Export componentes CORE
+                        seleccionar_org_origen
+                        if [ -z "$ORG_ORIGEN" ]; then
+                            continue
+                        fi
+                        echo "INICIA PROCESO EXPORTAR LISTA COMPONENTES CORE\n"
+                        echo -e "${COLOR_SUCCESS} En la carpeta SCRIPTS encontrara el archivo allMetadataCore.xml con el listado de todos los componentes...${COLOR_RESET}"
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd ..
+                        sfdx force:source:manifest:create --from-org ${ORG_ORIGEN} -n allMetadataCore -d scripts
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    2) # Export objetos CORE en CSV
+                        seleccionar_org_origen
+                        if [ -z "$ORG_ORIGEN" ]; then
+                            continue
+                        fi
+                        echo "INICIA PROCESO EXPORTAR LISTA OBJETOS CORE EN .CSV\n"
+                        echo -e "${COLOR_SUCCESS} En la raíz encontrará el archivo allobjects.txt con todos los objetos...${COLOR_RESET}"
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd ..
+                        sfdx force:schema:sobject:list -o ${ORG_ORIGEN} > allobjects.txt
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    3) # Export componentes VLOCITY
+                        seleccionar_org_origen
+                        if [ -z "$ORG_ORIGEN" ]; then
+                            continue
+                        fi
+                        echo "INICIA PROCESO EXPORTAR LISTA COMPONENTES VLOCITY\n"
+                        echo -e "${COLOR_SUCCESS} En la raíz encontrará el archivo output.txt con todos los componentes...${COLOR_RESET}"
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd ..
+                        vlocity -sfdx.username ${ORG_ORIGEN} packGetAllAvailableExports --nojob > output.txt
+                        sf config set target-org=${ORG_ORIGEN}
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    *)
+                        echo "OPCIÓN INVÁLIDA..."
+                        sleep 1
+                    ;;
+                esac
+            done
+        ;;
+        4) # Autenticar
+            while :
+            do
+                mostrar_menu_autenticar
+                read opcion_autenticar
+
+                case $opcion_autenticar in
+                    0)
+                        break # Volver al menú principal
+                    ;;
+                    1) # Genera JSON de autenticación
+                        seleccionar_org_destino
+                        if [ -z "$ORG_DESTINO" ]; then
+                            continue
+                        fi
+                        echo "Generando archivo de autenticación para ${ORG_DESTINO}..."
+                        sf org display --target-org $ORG_DESTINO --verbose --json > authE$ORG_DESTINO.json
+                        echo -e "${COLOR_SUCCESS}Archivo de autenticación generado en la carpeta SCRIPTS: authE$ORG_DESTINO.json${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}Recuerde utilizar este comando para poder acceder al ambiente: sf force auth sfdxurl store --sfdx-url-file [authFile.json]${COLOR_RESET}"
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    2) # Abrir ORG
+                        seleccionar_org_destino
+                        if [ -z "$ORG_DESTINO" ]; then
+                            continue
+                        fi
+                        echo "ABRIENDO ORG...\n"
+                        sf config set target-org=${ORG_DESTINO}
+                        cd ..
+                        sfdx force:org:open --target-org ${ORG_DESTINO}
+                        cd scripts/
+                        echo "* ENTER PARA VOLVER AL MENÚ * \n"
+                        read foo
+                    ;;
+                    *)
+                        echo "OPCIÓN INVÁLIDA..."
+                        sleep 1
+                    ;;
+                esac
+            done
+        ;;
+        5) # Release
+            while :
+            do
+                mostrar_menu_git
+                read opcion_git
+
+                case $opcion_git in
+                    0)
+                        break # Volver al menú principal
+                    ;;
+                    1) # Verificar Conflictos
+                        # Ejecutar el script externo de verificación de conflictos
+                        # Esto evita el problema de cambio de versión del script al cambiar de rama
+                        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+                        MANIFEST_DIR="${MANIFEST_DIR}" "${SCRIPT_DIR}/verificar-conflictos-git.sh"
+
+                        echo ""
+                        echo "* ENTER PARA VOLVER AL MENÚ * "
+                        read foo
+                    ;;
+                    2) # Reporte de Componentes por Manifest
+                        verificar_historial_cambios
+                    ;;
+                    3) # Reporte de Componentes por PR
+                        verificar_cambios_pr
+                    ;;
+                    4) # Reporte de PRs Aprobados por Periodo
+                        verificar_cambios_por_fecha
+
+                        echo ""
+                        echo "* ENTER PARA VOLVER AL MENÚ * "
+                        read foo
+                    ;;
+                    5) # Migrar componentes de un PR a otra rama
+                        crear_commit_hacia_uat
+
+                        echo ""
+                        echo "* ENTER PARA VOLVER AL MENÚ * "
+                        read foo
+                    ;;
+                    6) # Monitor Automático de PRs
+                        gestionar_monitor_prs
+                    ;;
+                    *)
+                        echo "OPCIÓN INVÁLIDA..."
+                        sleep 1
+                    ;;
+                esac
+            done
+        ;;
+        [Ee])
+            cd "$(dirname "${BASH_SOURCE[0]}")"
+            echo "SALIENDO DEL SCRIPT..."
+            sleep 1
+            clear
+            break 2
+        ;;
+        *)
+            echo "OPCIÓN INVÁLIDA..."
+            sleep 1
+        ;;
+    esac
+    done
+done
+
+
+##Validar conflictos
+
+#git checkout sura-salud-sprint13 # Cámbiate a la rama destino
+#git pull origin sura-salud-sprint13 #Actualiza
+#git merge origin/clone-banca-uat-18092025-01 --no-commit --no-ff # Simula el merge con la rama del PR
+#git merge --abort # Abortar el merge (si solo querías probar)
+
+## Migrar a UAT eje coments: Componentes CORE del SP1 producto de BANCA. 
+
+    # Clone branch UAT: SP1/develop
+        # git pull o git pull origin SP1/main o git fetch
+        # git checkout -f uat 
+        # git checkout -b clone-mov/ban-$uat/preUat-$ddmmaa-$00     
+        # git cherry-pick $commit_juli
+        # Corrección de conflictos (si es necesario) y realice el commit si se detectan cambios, sino ejecute el plugin para detectar xml o yaml
+        # Commit 1) recien creado cherry-pick -> Cherry-pick: Aplicado desde commit $commit-julian
+
+    #Identificar componentes para generar package.xml
+        # sf sgd source delta --to HU29572-2 --from sura-salud-sprint18 --output-dir .
+
+        # sf sgd source delta --to "HEAD" --from "HEAD~1" --output-dir "."
+            #Este plugin genera el listado de componentes core en la carpeta: package/package.xml 
+        # El listado generado anteriormente cambielos en el xml: manifest/Front/package.xml
+    #Identificar componentes para generar package.yaml
+        #1) Copie en la raiz el archivo generate-delta-deploy-job.js
+        #2) git diff --name-only HEAD HEAD~1 > changes.txt  (git diff --name-only HU29251 sura-salud-sprint17 > changes.txt)
+        #3) node generate-delta-deploy-job.js
+        #4) acceda en la raiz al archivo delta-deploy-job.yaml
+        #5) Cambiar el yaml en:manifest/Front/package.yaml
+        #6) No olvidar cambiar el buildfile.js y tener en cuenta si van componentes core o vlocity:
+            #{
+            #"type": "metadata",
+            #"manifestFile": "manifest/Front/package.xml",
+            #"testLevel": "NoTestRun",  #produccion debe ir asi: "testLevel": "RunLocalTests",
+            #"timeout": "33",
+            #"ignoreWarnings": true
+            #},
+            #{
+            #"type": "datapack",
+            #"manifestFile": "manifest/Front/package.yaml"
+            #}
+
+    #Para cuando se apruebe el PR- @xxx Por favor, valida que el despliegue se haya realizado correctamente en SIT. Una vez confirmes que el despliegue fue exitoso, cambia el estado de la HU a "Disponible para UAT" para que pueda ser migrada al ambiente de UAT.
+
+    # Commit 2) recien creado cherry-pick -> Update: package.xml,package.yaml y buildfile tras cherry-pick sura-salud-sprint2
+        # git commit -m "Update: package.xml,package.yaml y buildfile tras cherry-pick sura-salud-sprint2"
+        # git push origin clone-mov/ban-$uat/preUat-$ddmmaa-$00
+
+    #Create: HUXXX - {TITULO}
+    #Update: HUXXX - {AJUSTE}
+    #Cuando actualizo xml o yaml en la rama sura-salud-sprintx con lo metadatos de una HU va en el commit: Update: HUXXX - Componentes package.
+    # Se lanza PR de la nueva rama a uat 
+    #Create: SURASalud SPxx 
+    #Update: SURASalud SPxx - Ajuste de componentes
+    #Update: SURASalud HU25861 - Ajuste de componentes
+    ## Migrar a PROD
+    # Update: package.xml,package.yaml y buildfile envio a producción
+    # Identificar commit para tener xml y yaml
+    # Clonar rama main
+    # luego de identificar xml y yaml hacer retrieve de UAT
+    # Generar PR de clone-main a main
+    
+## Commits SURASalud
+    # Pilas para expressionSetVersion eliminar la version del repo y no va en el xml
+    # Pilas para DecisionMatrixDefinitionVersion NO ponerlo en el xml
+    # Commit 1) creación de la HU con metadata: Create: Metadata que hace parte de la HU
+    # Commit 2) cuando se ajusta el xml y yaml: Update: HUXXX Breve descripción de la HU
+
+
+#Autenticar
+    #sf org display --target-org Experian_OmniFix --verbose --json > authExperianOMNIFIX.json  
+    #sf force auth sfdxurl store --sfdx-url-file authSuraPROD.json
+
+#Usa PMD para escanear código Apex en busca de problemas de 
+    #pmd -d ./force-app/main/default/classes -R apex-security.xml -f text > ./doc_deploy/security_report_$(date +'%d%m%Y').txt
+
+#Recuerde verificar la activación de los flows al momento de culminar la migración
+
+
+
+#Coverage APEX CLASS
+    # sfdx force:apex:test:run --tests SURASaludCancelSheduleBatchTest --result-format human --code-coverage --output-dir ./scripts/coverage-apex-results 
+    # en carpeta /scripts/coverage-apex-results/test-run-id.txt se genera un id, cambie dicho id en la siguiente consulta: 
+    # sf apex get test -i 707Ek00002LPypV -o juan.obando@suratechcol.com.sitbanca
+    # y este genera el reporte de coverage (elimine siempre el archivo test-run-id.txt)
+
+
+#11) 
+#    echo "INICIANDO ROLLBACK DE ÚLTIMOS CAMBIOS...\n"
+#    cd ..
+#    git reset --hard HEAD~1  # Reviértelo al commit anterior
+#    git push --force  # Empuja el cambio al repositorio remoto
+#    cd scripts/
+#    echo "* ENTER PARA VOLVER AL MENÚ * \n"
+#    read foo
+#;;
+
+#Instalar actualización foundation:
+    # Desde el Setup de Salesforce, diríjase al módulo "Custom Metadata Types". Identifique todos los registros que tengan el valor "SFSura" en el campo "Namespace Prefix". Acceda a la opción "Manage Records" de cada uno y proceda a eliminarlos.
+    # Al eliminar desde instal package el paquete Core_Box, primnero asegurese de desasignar los PS foundation de los usuarios. 
+    # Empiece a eliminar las apex class que el sistema reporta, teniuendo en cuenta de no eliminar las apex con prefijo SURA.
+    # Las apex con prefijo SURA se deben abrir y comentar el codigo en donde se invoque SFSura. Posterior a la instalacion vuelva a dejar las clases como antes, sin el codigo comentado. 
+    # Asigno los PS de Foundation al admin : Suratech Foundation Admin - Suratech Foundation User - Suratech Integration Permission Set.
+    # Asigno el Permission Set Group Assignments : Suratech Integration Bus
+    # Acceda a la app SURA Foundation.
+        # Clic en el botón "Instalar metadatos y configuraciones iniciales" y refresco para que quede el check (Activar SURA Foundation) activado
+        # En el tab "Configuraciones",Activo los 4 checks de la sección "Funciones adicionales" .
+    # Por medio del setup voy a name credential y accedo a Suratech_Integration_Bus_Credentials:
+        # Clic en la External Credential: Suratech Integration Bus Credentials - External 
+            #Validamos que el Scope sea el mismo --data-urlencode 'scope del ambiente de QA o produccion dependeindo en donde se quiere configurar.     
+            #Si el scope es el que buscamos bamos hacia la parte inferior en la sección Principals y en el boton de acciones le damos clic en edit.
+            # En seccion de client id pegamos el id del archivo --data-urlencode 'client_id de archivo de servicio de autenticacion
+            # En Client Secret pegamos el --data-urlencode 'client_secret de archivo de servicio de autenticacion
+
+
+
+
+
+
+
+#Opción 1: Revertir el commit pero mantener los cambios en staging
+#git reset --soft HEAD~1
+
+
+#git log --follow -- <ruta/archivo> #para ver historial de commits, asi se sabe el hash y por azure se puede buscar el cambio
+    #git log --follow -- force-app/main/default/classes/SURASaludBuscarPolizasParaReclamaciones.cls
+
+#Crear una rama desde un commit anterior
+    #git checkout -b nueva-rama <hash_del_commit>
+#Revertir el commit actual (ideal para deshacer cambios ya subidos)
+    #git reverSt a31b5811
+
+
+#Si solo hiciste git pull origin <rama> y aún no has hecho commit:
+    #git reset --hard HEAD@{1}
+
+
+#Migracion de datos con SFDX Data Move Utility
+    #Todas la ejecuciones se rigen por el fichero export.json en la raiz del proyecto
+    #Comando para exportar datos en formato CSV:
+        #sf sfdmu run -p CSVObjects --sourceusername juan.obando@suratechcol.com.devbanca --targetusername csvfile
+    #Comando para insertar los registros del CSV a una ORG de destino:
+        #sf sfdmu run -p CSVObjects --sourceusername csvfile --targetusername $username_org_destinoe

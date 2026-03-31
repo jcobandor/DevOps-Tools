@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata"> 
+    <types>
+        <members>SURA_SendEmailCancelaciones</members>
+		<members>SURA_SendEmailCancelacionesTest</members>
+        <members>ContentVersionProcessingQueueable</members> <!-- cancelaciones arrendamiento -->
+        <members>ContentVersionTriggerHandler</members> <!-- cancelaciones arrendamiento -->
+        <members>SURAInsurancePolicyPaymentSheduleHandler</members>
+        <members>MotosCustomLeadUtils</members>
+        <members>MotosCustomLeadUtilsTest</members>
+        <members>AutosCustomLeadUtils</members>
+        <members>AutosCustomLeadUtilsTest</members>
+        <members>CustomQuoteUtils</members>
+        <members>CustomQuoteUtilsTest</members>
+        <members>PurchaseSummaryHandler</members>
+		<members>SURA_ConsultaRiesgoHelper</members>
+        <members>SURA_ConsultaRiesgoHelperTest</members>
+		<members>SURA_QueryRiskServiceQueueable</members>
+        <members>SURA_QueryRiskServiceQueueableTest</members>
+        <members>SURA_QueryScoreServiceQueueable</members>
+        <members>SURA_QueryScoreServiceQueueableTest</members>
+        <members>SURA_RateServiceQueueable</members>
+        <members>SURA_RateServiceQueueableTest</members>
+        <members>SURA_RiskServiceQueueable</members>
+        <members>SURA_RiskServiceQueueableScheduler</members>
+        <members>SURA_RiskServiceQueueableTest</members>
+        <members>SURA_ScoreAnaliticoHelper</members>
+        <members>SURA_ScoreAnaliticoHelperTest</members>
+        <members>SURAMembresiaInvocable</members>
+        <members>SURAMembresiaStatusCall</members>
+        <members>SURAMembresiaStatusResponseDTO</members>
+        <members>SURAMembresiaWebHookQueueable</members>
+        <members>SURAMovilidadOnerosoPDFDocument</members>
+        <members>SURATarifaServiceHandler</members>
+        <members>SURATarifaServiceHandlerTest</members>
+        <members>SURA_SarlaftCall_test</members>
+        <members>SURA_SarlaftRequestDTO</members>
+        <members>SURA_SarlaftRequestDTO_test</members>
+    	<members>SURA_SarlaftRequestValidator</members>
+        <members>SURA_SarlaftRequestValidator_test</members>
+        <members>SURA_SarlaftValidationUtils</members>
+        <members>SURASalud_SarlaftManagerResponseSalud</members>
+        <members>SURASaludSarlaftCall</members> <!--debe ser previamente revisado y aprobado por NTT(Lorita) porque modifica la librería base de Sarlaft 4.-->    
+        <members>SURASaludSarlaftCallTest</members> <!--debe ser previamente revisado y aprobado por NTT(Lorita) porque modifica la librería base de Sarlaft 4.-->    
+        <members>Arrendamiento_RenewalPolicyAsync</members>
+		<members>SURAInvoiceListeningServiceV1</members>
+		<members>SURAPaymentListeningServiceV1</members>
+        <members>SURAAccountingMovementManager</members>
+        <members>SURASaludInsurancePolicyDataInvoker</members> <!-- cancelaciones arrendamiento -->
+		<members>SURASaludInsurancePolicyDataInvokerTest</members> <!-- cancelaciones arrendamiento -->
+        <members>SURAArrienInsurancePolicyDataBuilderTest</members> <!-- cancelaciones arrendamiento -->
+		<members>SURAArriendosInsurancePolicyDataBuilder</members> <!-- cancelaciones arrendamiento -->
+		<members>SURASaludInsurancePolicyDataBuilder</members> <!-- cancelaciones arrendamiento -->
+		<members>SURASaludInsurancePolicyDataBuilderTest</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASaludAccountSarlaftCall</members> <!--debe ser previamente revisado y aprobado por NTT(Lorita) porque modifica la librería base de Sarlaft 4.-->    
+        <members>SURASaludAccountSarlaftCallTest</members> <!--debe ser previamente revisado y aprobado por NTT(Lorita) porque modifica la librería base de Sarlaft 4.-->    
+        <members>SURASarlaftCall</members><!--debe ser previamente revisado y aprobado por NTT(Lorita) porque modifica la librería base de Sarlaft 4.-->    
+        <members>SURASarlaftCalloutMock</members><!--debe ser previamente revisado y aprobado por NTT(Lorita) porque modifica la librería base de Sarlaft 4.-->    
+        <members>SURA_SendEmailCancelaciones</members> <!-- cancelaciones arrendamiento -->
+        <members>SURA_SendEmailCancelacionesTest</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASaludBuscarPolizasParaReclamaciones</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASarlaftWebHook</members>
+        <members>SURASarlaftWebHook_Test</members>
+        <members>SURAAccountingMovementManager</members>
+        <members>SURANotificatorToExternalServices</members>
+        <members>SURANotificatorToExternalServicesTest</members>
+        <members>SURAAccountingCancellationJsonBuilder</members>
+        <members>SURASaludCancelSheduleBatch</members>
+        <members>SURA_RenewalAction</members>
+        <members>SURA_RenewalOrchestrator</members>
+		<members>SURAHomologacionPreEmision</members>
+		<members>SURAHomologacionPreEmisionTest</members>
+        <name>ApexClass</name>
+    </types>
+    <types>
+        <members>SURASalud_Ajustar_datos_de_caso_de_reclamaci_n_de_p_liza</members>
+        <members>SURASalud_IniciarCancelacionPartirCasoCancelacionPolizas</members> <!-- cancelaciones arrendamiento -->
+        <members>Generar_documentos_de_oneroso</members>
+        <members>Invocar_Webhook_membresia</members>
+        <members>SURACancelarMembresia</members>
+        <members>SURASaludFutureCancellation</members>
+        <members>Validaciones_y_Proceso_de_Cancelacion_Polizas_Arriendos</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASalud_ValidacionesProcesoCancelacionTrasversalPolizas</members>
+        <members>SURAValidaciones_y_Proceso_de_Cancelacion_Polizas_Movilidad</members>
+        <name>Flow</name>
+    </types>
+    <types>
+        <members>ContentVersionTrigger</members> <!-- cancelaciones arrendamiento -->
+        <name>ApexTrigger</name>
+    </types>
+    <types>
+        <members>InsurancePolicy-Formato de póliza de seguro</members>
+        <name>Layout</name>
+    </types>
+    <types>
+        <members>Collect__c.All</members>
+        <members>SURAPaymentSession__c.All</members>
+        <members>SURAPaymentSession__c.All1</members>
+        <name>ListView</name>
+    </types>
+    <types>
+        <members>Case.SURASalud_Reason__c</members>
+        <members>Case.SURASalud_CaseType__c</members>
+        <members>Collect__c.SURAAutoPaymentEnable__c</members>
+        <members>Collect__c.SURACollectResponse__c</members>
+        <members>Collect__c.SURAPaymentSchedule__c</members>
+        <members>Collect__c.SURARequestIdCollect__c</members>
+        <members>Collect__c.SURAStatus__c</members>
+        <members>InsurancePolicy.Sura_DaysToRenew__c</members>
+        <members>InsurancePolicy.Sura_LimiteIndemnizacion__c</members>
+        <members>InsurancePolicy.SURA_scoreResultJson__c</members>
+        <members>InsurancePolicy.SURAMembresia__c</members>
+        <members>InsurancePolicy.SURARenewalData__c</members>
+        <members>InsurancePolicy.SURAScoreRenovacion__c</members>
+        <members>InsurancePolicy.SURASendNoticeCall__c</members>
+        <members>InsurancePolicy.SURASuscripcion__c</members>
+        <members>InsurancePolicy.SURATotalAnnulmentAmount__c</members>
+        <members>InsurancePolicy.SURAUnsubscribeReason__c</members>
+        <members>InsurancePolicy.SURAUrlRenovacion__c</members>
+        <members>ReturnURL__mdt.cancelUrl__c</members>
+        <members>ReturnURL__mdt.InvoicesUrl__c</members>
+        <members>ReturnURL__mdt.returnUrl__c</members>
+        <members>ReturnURL__mdt.SummaryURL__c</members>
+        <members>Sura_Renovaciones__mdt.Dias_minimos_de_renovacion__c</members>
+        <members>SURAPaymentSession__c.Estado__c</members>
+        <members>SURAPaymentSession__c.PolicyId__c</members>
+        <members>SURAPaymentSession__c.QuoteId__c</members>
+        <members>SURAPaymentSession__c.Status__c</members>
+        <members>SURAPaymentSession__c.SURA_RespuestaInvalidarToken__c</members>
+        <members>SURAPaymentSession__c.SURA_ServicioInvalidarToken__c</members>
+        <members>SURAPaymentSession__c.SURAFirstResponseCollect__c</members>
+        <members>SURAPaymentSession__c.SURAPayer__c</members>
+        <members>SURAPaymentSession__c.SURAReferencia__c</members>
+        <members>SURAPaymentSession__c.SURARequestId__c</members>
+        <members>SURAPaymentSession__c.SURARequestIdCollect__c</members>
+        <members>SURAPaymentSession__c.SURAResponseRequestId__c</members>
+        <members>SURAPaymentSession__c.SURAStatusFristCollect__c</members>
+        <members>SURAPaymentSession__c.SURASuscripcion__c</members>
+        <members>SURAPaymentSession__c.SURAToken__c</members>
+        <members>SURAPaymentSession__c.SURAUrlPago__c</members>
+        <members>vlocity_ins_fsc__InsurancePolicyPaymentScheduleEntry__c.SURA_PaymentExpirationDate__c</members>
+        <members>InsurancePolicy.Sura_PagosPendientes__c</members>
+		<members>InsurancePolicy.SURAPoliticasRenovacion__c</members>
+        <members>Case.SURASalud_Solucion__c</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASaludUtilitesControllers__mdt.SURASaludFamilyProduct__c</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASaludUtilitesControllers__mdt.SURASaludField__c</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASaludUtilitesControllers__mdt.SURASaludObject__c</members> <!-- cancelaciones arrendamiento -->
+        <members>SURASaludUtilitesControllers__mdt.SURASaludRecordTypeName__c</members> <!-- cancelaciones arrendamiento -->
+        <members>InsurancePolicyParticipant.InsurancePolicyProductFamily__c</members> <!-- cancelaciones arrendamiento -->
+        <members>InsurancePolicyAsset.SURA_PropertyAddress__c</members>
+        <members>DatosP8__mdt.DSTipoDocumental__c</members>
+        <members>DatosP8__mdt.DSEmpresaFondo__c</members>
+        <members>DatosP8__mdt.DSEstado__c</members>
+        <members>DatosP8__mdt.DSFormatoDeOrigen__c</members>
+        <members>DatosP8__mdt.DSLineaNegocio__c</members>
+        <members>DatosP8__mdt.DSOperacion__c</members>
+        <members>DatosP8__mdt.DSProveedorDigitalizacion__c</members>
+        <members>DatosP8__mdt.DSReferenciaDocumental__c</members>
+        <members>DatosP8__mdt.DSRiesgo__c</members>
+        <members>DatosP8__mdt.DSSerieDocumental__c</members>
+        <members>DatosP8__mdt.DSSubRamo__c</members>
+        <members>DatosP8__mdt.CDCodigoCia__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>sURAUrlRecibos</members>
+        <members>suraArrendamientoCotizador</members>
+        <name>LightningComponentBundle</name>
+    </types>
+    <types>
+		<members>SURASaludUtilitesControllers.MotivosCancelacionesArriendo</members>
+		<members>DatosP8.Arrendamientos_CaratulaRenovada</members>
+		<members>DatosP8.Arrendamientos_ContratoRenovado</members>
+		<members>SURASalud_IntentosCancelacionPoliza.Arrendamientos</members> <!-- cancelaciones arrendamiento -->
+        <members>DatosP8.Arrendamientos_Cancelacion</members> <!-- cancelaciones arrendamiento -->
+        <members>Event_Key_Marketing.ArrendamientosCancel</members> <!-- cancelaciones arrendamiento -->
+		<name>CustomMetadata</name>
+	</types>
+    <types>
+        <members>Sesi_n_de_pago_Record_Page</members>
+        <name>FlexiPage</name>
+    </types>
+    <types>
+        <members>InsurancePolicy.Generar_documento_endoso</members>
+        <members>InsurancePolicy.Link_de_facturas</members>
+        <members>InsurancePolicy.SURACancelarSuscripcion</members>
+        <members>SURAPaymentSession__c.Consultar_Pago</members>
+        <name>QuickAction</name>
+    </types>
+    <types>
+        <members>Collect__c</members>
+        <members>ReturnURL__mdt</members>
+        <members>Sura_Renovaciones__mdt</members>
+        <members>SURAPaymentSession__c</members>
+        <members>SURASaludUtilitesControllers__mdt</members> <!-- cancelaciones arrendamiento -->
+        <members>SURAPreFijoNumeroPoliza__mdt</members>
+        <members>DatosP8__mdt</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Case.SURA_PolicyArriendos</members> <!-- cancelaciones arrendamiento -->
+        <name>RecordType</name>
+    </types>
+    <version>64.0</version>
+</Package>
+
+
+
+        

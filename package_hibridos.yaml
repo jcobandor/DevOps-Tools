@@ -1,0 +1,37 @@
+projectPath: .
+expansionPath: ./vlocity/
+manifest:
+  - OmniScript/SURASalud_BusquedaGenericaPolizas_English # cancelaciones arrendamiento
+  - DataRaptor/SURASaludExtractPolicyDetailsById # cancelaciones arrendamiento
+  - OmniScript/SURASalud_IniciarProcesoPostVenta_English # cancelaciones arrendamiento
+  - DataRaptor/SURAApiEventMKT # cancelaciones arrendamiento
+  - IntegrationProcedure/Arrendamiento_orchestrator
+  - DataRaptor/SuraArrendamientoExtractAccount # cancelaciones arrendamiento
+  - DataRaptor/SuraArrendamientoUpdateParticipant # cancelaciones arrendamiento
+  - IntegrationProcedure/SURAArrendamientos_CancelPolicy # cancelaciones arrendamiento
+  - DataRaptor/SURAArrendamientosUpdatePolicyCancelation # cancelaciones arrendamiento
+  - IntegrationProcedure/SURASalud_ValidationSarlaft4-0
+  - VlocityCard/SURAinsManageCancelnds
+  - DataRaptor/SuraGetInfoCasePolicy # cancelaciones arrendamiento
+  - IntegrationProcedure/SURA_SendEmailMarketingCancelaciones # cancelaciones arrendamiento
+  - IntegrationProcedure/Arrendamiento_GeneratePDF # cancelaciones arrendamiento
+  - DocumentTemplate/Sura_Arrendamientos_CaratulaCancelaciones # cancelaciones arrendamiento
+  - DataRaptor/SURASaludGetPolicyByCancelation # cancelaciones arrendamiento
+  - IntegrationProcedure/SURASalud_CancelPolicy # cancelaciones arrendamiento
+  - IntegrationProcedure/SURASalud_BuscarPolizasParaReclamaciones # cancelaciones arrendamiento
+  - DataRaptor/SURAExtracCancelationPayInfo # cancelaciones arrendamiento
+  - DataRaptor/Arrendamiento_UpdatePolicyCancellation # cancelaciones arrendamiento
+  - DataRaptor/SuraDatosP8PostVenta # cancelaciones arrendamiento
+  - IntegrationProcedure/SURA_SendEmailMarketingRenovaciones # cancelaciones arrendamiento
+  - IntegrationProcedure/SURASalud_SendNotificationCancelation
+
+
+
+delete: true
+activate: true
+compileOnBuild: true
+maxDepth: 0
+continueAfterError: true
+useAllRelationships: false
+supportHeadersOnly: true
+supportForceDeploy: true
