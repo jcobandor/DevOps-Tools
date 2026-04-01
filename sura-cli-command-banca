@@ -17,6 +17,7 @@ MANIFEST_DIR=""
 XML_COMPONENTES=""
 YAML_COMPONENTES=""
 ORG_TRACKING_TRIGGER=""
+PROJECT_ROOT="$SCRIPT_DIR"
 
 function configurar_banca() {
     PROYECTO="BANCA COL"
@@ -40,6 +41,7 @@ function configurar_banca_nequi() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER=""
+    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/MASIVOS-NEQUI/suratech-salesforce-masivos-app"
 }
 
 
@@ -2498,7 +2500,7 @@ do
                         fi
                         echo -e "INICIA PROCESO RETRIEVE XML...\n"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         sf project retrieve start --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_ORIGEN} --ignore-conflicts
                         cd "$SCRIPT_DIR"
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
@@ -2550,7 +2552,7 @@ do
 
                                 echo -e "INICIA VALIDACIÓN RÁPIDA DE METADATA CORE...\n"
                                 sf config set target-org=${ORG_DESTINO}
-                                cd "$SCRIPT_DIR"
+                                cd "$PROJECT_ROOT"
                                 LOG_FILE="scripts/log_validated_deployment"
                                 ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
@@ -2588,7 +2590,7 @@ do
 
                                 echo -e "INICIA VALIDACIÓN EXHAUSTIVA DE METADATA CORE...\n"
                                 sf config set target-org=${ORG_DESTINO}
-                                cd "$SCRIPT_DIR"
+                                cd "$PROJECT_ROOT"
                                 LOG_FILE="scripts/log_validated_deployment"
                                 ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
@@ -2691,7 +2693,7 @@ do
 
                                 echo -e "INICIA VALIDACIÓN CON TESTS ESPECÍFICOS...\n"
                                 sf config set target-org=${ORG_DESTINO}
-                                cd "$SCRIPT_DIR"
+                                cd "$PROJECT_ROOT"
                                 LOG_FILE="scripts/log_validated_deployment"
                                 ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
@@ -2743,7 +2745,7 @@ do
 
                         echo -e "INICIA DESPLIEGUE DE METADATA CORE...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         LOG_FILE="scripts/log_validated_deployment"
                         ORG_NAME=$(get_org_name "$ORG_DESTINO")
                         {
@@ -2781,7 +2783,7 @@ do
                         fi
                         echo -e "INICIA VALIDATE DESTRUCTIVE XML...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         sf deploy metadata --metadata-dir itemToDelete/ --target-org ${ORG_DESTINO} --wait 10 --dry-run #Valida antes de borrar
                         cd "$SCRIPT_DIR"
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
@@ -2794,7 +2796,7 @@ do
                         fi
                         echo -e "INICIA DESTRUCTIVE XML...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         sf deploy metadata --metadata-dir itemToDelete/ --target-org ${ORG_DESTINO} --wait 10 #Valida antes de borrar
                         cd "$SCRIPT_DIR"
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
@@ -2824,7 +2826,7 @@ do
                         fi
                         echo -e "INICIA PROCESO RETRIEVE YAML...\n"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         vlocity -sfdx.username ${ORG_ORIGEN} -job ${MANIFEST_DIR}/${YAML_COMPONENTES} packExport
                         cd "$SCRIPT_DIR"
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
@@ -2850,7 +2852,7 @@ do
 
                         echo -e "INICIA DESPLIEGUE DE METADATA VLOCITY...\n"
                         sf config set target-org=${ORG_DESTINO}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         vlocity -sfdx.username ${ORG_DESTINO} -job ${MANIFEST_DIR}/${YAML_COMPONENTES} packDeploy
                         cd "$SCRIPT_DIR"
 
@@ -2892,7 +2894,7 @@ do
                         echo -e "INICIA PROCESO EXPORTAR LISTA COMPONENTES CORE\n"
                         echo -e "${COLOR_SUCCESS} En la carpeta SCRIPTS encontrara el archivo allMetadataCore.xml con el listado de todos los componentes...${COLOR_RESET}"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         sfdx force:source:manifest:create --from-org ${ORG_ORIGEN} -n allMetadataCore -d scripts
                         sf config set target-org=${ORG_ORIGEN}
                         cd "$SCRIPT_DIR"
@@ -2907,7 +2909,7 @@ do
                         echo -e "INICIA PROCESO EXPORTAR LISTA OBJETOS CORE EN .CSV\n"
                         echo -e "${COLOR_SUCCESS} En la raíz encontrará el archivo allobjects.txt con todos los objetos...${COLOR_RESET}"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         sfdx force:schema:sobject:list -o ${ORG_ORIGEN} > allobjects.txt
                         sf config set target-org=${ORG_ORIGEN}
                         cd "$SCRIPT_DIR"
@@ -2922,7 +2924,7 @@ do
                         echo -e "INICIA PROCESO EXPORTAR LISTA COMPONENTES VLOCITY\n"
                         echo -e "${COLOR_SUCCESS} En la raíz encontrará el archivo output.txt con todos los componentes...${COLOR_RESET}"
                         sf config set target-org=${ORG_ORIGEN}
-                        cd "$SCRIPT_DIR"
+                        cd "$PROJECT_ROOT"
                         vlocity -sfdx.username ${ORG_ORIGEN} packGetAllAvailableExports --nojob > output.txt
                         sf config set target-org=${ORG_ORIGEN}
                         cd "$SCRIPT_DIR"
