@@ -25,7 +25,7 @@ function configurar_banca() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER="juan.obando@suratechcol.com.sitbanca"
-    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/MASIVOS-NEQUI/suratech-salesforce-masivos-app"
+    PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
 }
 
 function configurar_viajes() {
@@ -34,7 +34,7 @@ function configurar_viajes() {
     XML_COMPONENTES="package-viajes.xml"
     YAML_COMPONENTES="package-viajes.yaml"
     ORG_TRACKING_TRIGGER="juan.obando@nespon.com.sitviajes"
-    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/MASIVOS-NEQUI/suratech-salesforce-masivos-app"
+    PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
 }
 
 function configurar_banca_nequi() {
@@ -43,7 +43,7 @@ function configurar_banca_nequi() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER=""
-    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/MASIVOS-NEQUI/suratech-salesforce-masivos-app"
+    PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
 }
 
 
@@ -837,7 +837,11 @@ function seleccionar_org_origen() {
         echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         echo -e "  ${OPTION}1.${COLOR_RESET}  AUTOS         ${MUTED}juan.obando@suratech.com.chile.autos${COLOR_RESET}"
-        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD CHILE      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SALUD         ${MUTED}juan.obando@suratech.com.chile.salud${COLOR_RESET}"
+        echo -e "  ${OPTION}3.${COLOR_RESET}  VIAJES        ${MUTED}juan.obando@suratech.com.chile.viajes${COLOR_RESET}"
+        echo -e "  ${OPTION}4.${COLOR_RESET}  INTEGRACION   ${MUTED}juan.obando@suratech.com.chile.integracion${COLOR_RESET}"
+        echo -e "  ${OPTION}5.${COLOR_RESET}  UAT           ${MUTED}juan.obando@suratech.com.chile.uat${COLOR_RESET}"
+        echo -e "  ${OPTION}6.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
     fi
     if [[ "$PROYECTO" != "AUTOS CL" ]]; then
         echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
@@ -880,7 +884,11 @@ function seleccionar_org_origen() {
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         case $org_opcion in
             1) ORG_ORIGEN='juan.obando@suratech.com.chile.autos' ;;
-            2) ORG_ORIGEN='juan.obando@suratech.com.chile.prod' ;;
+            2) ORG_ORIGEN='juan.obando@suratech.com.chile.salud' ;;
+            3) ORG_ORIGEN='juan.obando@suratech.com.chile.viajes' ;;
+            4) ORG_ORIGEN='juan.obando@suratech.com.chile.integracion' ;;
+            5) ORG_ORIGEN='juan.obando@suratech.com.chile.uat' ;;
+            6) ORG_ORIGEN='juan.obando@suratech.com.chile.prod' ;;
             "") ORG_ORIGEN="" ;;
             *) ORG_ORIGEN="" ;;
         esac
@@ -905,7 +913,10 @@ function seleccionar_org_destino() {
         echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         echo -e "  ${OPTION}1.${COLOR_RESET}  AUTOS         ${MUTED}juan.obando@suratech.com.chile.autos${COLOR_RESET}"
-        echo -e "  ${OPTION}2.${COLOR_RESET}  PROD CHILE      ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SALUD         ${MUTED}juan.obando@suratech.com.chile.salud${COLOR_RESET}"
+        echo -e "  ${OPTION}3.${COLOR_RESET}  VIAJES        ${MUTED}juan.obando@suratech.com.chile.viajes${COLOR_RESET}"
+        echo -e "  ${OPTION}4.${COLOR_RESET}  INTEGRACION   ${MUTED}juan.obando@suratech.com.chile.integracion${COLOR_RESET}"
+        echo -e "  ${OPTION}5.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
     fi
     if [[ "$PROYECTO" != "AUTOS CL" ]]; then
         echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
@@ -948,7 +959,11 @@ function seleccionar_org_destino() {
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         case $org_opcion in
             1) ORG_DESTINO='juan.obando@suratech.com.chile.autos' ;;
-            2) ORG_DESTINO='juan.obando@suratech.com.chile.prod' ;;
+            2) ORG_DESTINO='juan.obando@suratech.com.chile.salud' ;;
+            3) ORG_DESTINO='juan.obando@suratech.com.chile.viajes' ;;
+            4) ORG_DESTINO='juan.obando@suratech.com.chile.integracion' ;;
+            5) ORG_DESTINO='juan.obando@suratech.com.chile.uat' ;;
+            6) ORG_DESTINO='juan.obando@suratech.com.chile.prod' ;;
             "") ORG_DESTINO="" ;;
             *) ORG_DESTINO="" ;;
         esac
@@ -972,6 +987,10 @@ function seleccionar_org_destino_sandbox() {
         echo -e "  ${OPTION}2.${COLOR_RESET}  SITVIAJES     ${MUTED}juan.obando@nespon.com.sitviajes${COLOR_RESET}"
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         echo -e "  ${OPTION}1.${COLOR_RESET}  AUTOS         ${MUTED}juan.obando@suratech.com.chile.autos${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  SALUD         ${MUTED}juan.obando@suratech.com.chile.salud${COLOR_RESET}"
+        echo -e "  ${OPTION}3.${COLOR_RESET}  VIAJES        ${MUTED}juan.obando@suratech.com.chile.viajes${COLOR_RESET}"
+        echo -e "  ${OPTION}4.${COLOR_RESET}  INTEGRACION   ${MUTED}juan.obando@suratech.com.chile.integracion${COLOR_RESET}"
+        echo -e "  ${OPTION}5.${COLOR_RESET}  UAT           ${MUTED}juan.obando@suratech.com.chile.uat${COLOR_RESET}"
     fi
     if [[ "$PROYECTO" != "AUTOS CL" ]]; then
         echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
@@ -1004,6 +1023,10 @@ function seleccionar_org_destino_sandbox() {
     elif [[ "$PROYECTO" == "AUTOS CL" ]]; then
         case $org_opcion in
             1) ORG_DESTINO='juan.obando@suratech.com.chile.autos' ;;
+            2) ORG_DESTINO='juan.obando@suratech.com.chile.salud' ;;
+            3) ORG_DESTINO='juan.obando@suratech.com.chile.viajes' ;;
+            4) ORG_DESTINO='juan.obando@suratech.com.chile.integracion' ;;
+            5) ORG_DESTINO='juan.obando@suratech.com.chile.uat' ;;
             "") ORG_DESTINO="" ;;
             *) ORG_DESTINO="" ;;
         esac
