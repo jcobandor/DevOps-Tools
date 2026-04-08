@@ -916,7 +916,8 @@ function seleccionar_org_destino() {
         echo -e "  ${OPTION}2.${COLOR_RESET}  SALUD         ${MUTED}juan.obando@suratech.com.chile.salud${COLOR_RESET}"
         echo -e "  ${OPTION}3.${COLOR_RESET}  VIAJES        ${MUTED}juan.obando@suratech.com.chile.viajes${COLOR_RESET}"
         echo -e "  ${OPTION}4.${COLOR_RESET}  INTEGRACION   ${MUTED}juan.obando@suratech.com.chile.integracion${COLOR_RESET}"
-        echo -e "  ${OPTION}5.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
+        echo -e "  ${OPTION}5.${COLOR_RESET}  UAT           ${MUTED}juan.obando@suratech.com.chile.uat${COLOR_RESET}"
+        echo -e "  ${OPTION}6.${COLOR_RESET}  PROD CHILE    ${MUTED}juan.obando@suratech.com.chile.prod${COLOR_RESET}"
     fi
     if [[ "$PROYECTO" != "AUTOS CL" ]]; then
         echo -e "  ${OPTION}3.${COLOR_RESET}  PRE-UAT       ${MUTED}devcb@sura.com.preuat${COLOR_RESET}"
@@ -1924,22 +1925,34 @@ function crear_commit_hacia_uat() {
         return 0
     fi
 
-    # ── Worktree temporal (NO cambia la rama actual) ──
-    local tmp_worktree
-    tmp_worktree=$(mktemp -d)
+    # ── Worktree temporal o directorio actual ──
+    local work_dir
+    local use_worktree=false
+    local tmp_worktree=""
+
     echo ""
-    echo -e "  ${COLOR_INFO}Preparando worktree temporal para ${COLOR_ACCENT}${rama_destino}${COLOR_INFO}...${COLOR_RESET}"
+    if [ "$rama_destino" = "$rama_original" ]; then
+        # La rama destino ya está activa → trabajar directamente aquí
+        echo -e "  ${COLOR_INFO}La rama destino es la rama actual → trabajando en directorio actual${COLOR_RESET}"
+        work_dir="$PROJECT_ROOT"
+    else
+        # Crear worktree temporal para no cambiar de rama
+        tmp_worktree=$(mktemp -d)
+        echo -e "  ${COLOR_INFO}Preparando worktree temporal para ${COLOR_ACCENT}${rama_destino}${COLOR_INFO}...${COLOR_RESET}"
 
-    local wt_err
-    wt_err=$(git -C "$PROJECT_ROOT" worktree add "$tmp_worktree" "$rama_destino" 2>&1)
-    if [ $? -ne 0 ]; then
-        echo -e "  ${COLOR_ERROR}Error creando worktree: ${wt_err}${COLOR_RESET}"
-        rm -rf "$tmp_worktree"
-        return 1
+        local wt_err
+        wt_err=$(git -C "$PROJECT_ROOT" worktree add "$tmp_worktree" "$rama_destino" 2>&1)
+        if [ $? -ne 0 ]; then
+            echo -e "  ${COLOR_ERROR}Error creando worktree: ${wt_err}${COLOR_RESET}"
+            rm -rf "$tmp_worktree"
+            return 1
+        fi
+        echo -e "  ${COLOR_SUCCESS}✓ Worktree creado (rama actual sin cambios)${COLOR_RESET}"
+        work_dir="$tmp_worktree"
+        use_worktree=true
     fi
-    echo -e "  ${COLOR_SUCCESS}✓ Worktree creado (rama actual sin cambios)${COLOR_RESET}"
 
-    # ── Checkout de archivos desde merge commit en el worktree ──
+    # ── Checkout de archivos desde merge commit ──
     echo -e "  ${COLOR_INFO}Trayendo archivos desde merge commit ${COLOR_ACCENT}${merge_commit:0:12}${COLOR_INFO}...${COLOR_RESET}"
 
     local checkout_ok=0
@@ -1948,7 +1961,7 @@ function crear_commit_hacia_uat() {
     while IFS= read -r archivo; do
         [ -z "$archivo" ] && continue
         local checkout_err
-        checkout_err=$(git -C "$tmp_worktree" checkout "$merge_commit" -- "$archivo" 2>&1)
+        checkout_err=$(git -C "$work_dir" checkout "$merge_commit" -- "$archivo" 2>&1)
         if [ $? -eq 0 ]; then
             checkout_ok=$((checkout_ok + 1))
             echo -e "    ${COLOR_SUCCESS}✓ ${archivo}${COLOR_RESET}"
@@ -1965,15 +1978,15 @@ function crear_commit_hacia_uat() {
         echo -e "  ${COLOR_WARNING}  ${checkout_fail} archivos no encontrados${COLOR_RESET}"
     fi
 
-    # ── Commit en el worktree ──
+    # ── Commit ──
     local commit_msg="Migrate: PR #${pr_id_input} - ${pr_title}"
     echo ""
     echo -e "  ${COLOR_INFO}Creando commit en ${COLOR_ACCENT}${rama_destino}${COLOR_INFO}...${COLOR_RESET}"
     echo -e "  ${COLOR_MUTED}${commit_msg}${COLOR_RESET}"
 
-    git -C "$tmp_worktree" add -A 2>/dev/null
+    git -C "$work_dir" add -A 2>/dev/null
     local commit_created=false
-    if git -C "$tmp_worktree" commit -m "$commit_msg" 2>/dev/null; then
+    if git -C "$work_dir" commit -m "$commit_msg" 2>/dev/null; then
         echo -e "  ${COLOR_SUCCESS}✓ Commit creado en ${rama_destino}${COLOR_RESET}"
         commit_created=true
     else
@@ -1985,7 +1998,7 @@ function crear_commit_hacia_uat() {
         echo ""
         echo -e "  ${COLOR_INFO}Haciendo push a origin/${rama_destino}...${COLOR_RESET}"
         local push_err
-        push_err=$(git -C "$tmp_worktree" push origin "$rama_destino" 2>&1)
+        push_err=$(git -C "$work_dir" push origin "$rama_destino" 2>&1)
         if [ $? -eq 0 ]; then
             echo -e "  ${COLOR_SUCCESS}✓ Push exitoso a origin/${rama_destino}${COLOR_RESET}"
         else
@@ -1994,13 +2007,15 @@ function crear_commit_hacia_uat() {
         fi
     fi
 
-    # ── Limpiar worktree ──
-    echo ""
-    echo -e "  ${COLOR_INFO}Limpiando worktree temporal...${COLOR_RESET}"
-    git -C "$PROJECT_ROOT" worktree remove "$tmp_worktree" --force 2>/dev/null
-    rm -rf "$tmp_worktree" 2>/dev/null
-    git -C "$PROJECT_ROOT" worktree prune 2>/dev/null
-    echo -e "  ${COLOR_SUCCESS}✓ Worktree eliminado${COLOR_RESET}"
+    # ── Limpiar worktree (solo si se creó uno) ──
+    if [ "$use_worktree" = true ]; then
+        echo ""
+        echo -e "  ${COLOR_INFO}Limpiando worktree temporal...${COLOR_RESET}"
+        git -C "$PROJECT_ROOT" worktree remove "$tmp_worktree" --force 2>/dev/null
+        rm -rf "$tmp_worktree" 2>/dev/null
+        git -C "$PROJECT_ROOT" worktree prune 2>/dev/null
+        echo -e "  ${COLOR_SUCCESS}✓ Worktree eliminado${COLOR_RESET}"
+    fi
 
     echo ""
     echo -e "  ${COLOR_SUCCESS}${BOLD}╭───────────────────────────────────────╮${COLOR_RESET}"
