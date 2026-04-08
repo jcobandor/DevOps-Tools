@@ -1765,7 +1765,7 @@ function crear_commit_hacia_uat() {
     echo "  │      Migrar componentes de un PR a otra rama        │"
     echo "  ╰─────────────────────────────────────────────────────╯"
     echo -e "  ${COLOR_RESET}"
-    echo -e "  ${MUTED}Trae los archivos de un PR completado y los aplica en la rama destino mediante cherry-pick automático${COLOR_RESET}"
+    echo -e "  ${MUTED}Trae los archivos de un PR completado y los aplica en la rama destino${COLOR_RESET}"
     echo ""
 
     # Pedir ID del Pull Request
@@ -1825,14 +1825,21 @@ function crear_commit_hacia_uat() {
     local rama_original
     rama_original=$(git branch --show-current)
 
-    # Pedir rama destino (creada manualmente por el usuario)
+    # Pedir rama destino (detecta rama actual como sugerencia)
     echo ""
-    echo -e -n "  ${COLOR_TEXT}Ingrese la rama destino (donde aplicar los cambios): ${COLOR_RESET}"
-    read rama_destino
+    echo -e -n "  ${COLOR_TEXT}¿La rama destino es ${COLOR_ACCENT}${rama_original}${COLOR_TEXT}? (S/N): ${COLOR_RESET}"
+    read usar_rama_actual
 
-    if [ -z "$rama_destino" ]; then
-        echo -e "  ${COLOR_WARNING}No se ingresó rama destino${COLOR_RESET}"
-        return 1
+    local rama_destino
+    if [[ "$usar_rama_actual" =~ ^[Ss]$ ]]; then
+        rama_destino="$rama_original"
+    else
+        echo -e -n "  ${COLOR_TEXT}Ingrese la rama destino (donde aplicar los cambios): ${COLOR_RESET}"
+        read rama_destino
+        if [ -z "$rama_destino" ]; then
+            echo -e "  ${COLOR_WARNING}No se ingresó rama destino${COLOR_RESET}"
+            return 1
+        fi
     fi
 
     local PROJECT_ROOT
