@@ -1984,7 +1984,10 @@ function crear_commit_hacia_uat() {
     echo -e "  ${COLOR_INFO}Creando commit en ${COLOR_ACCENT}${rama_destino}${COLOR_INFO}...${COLOR_RESET}"
     echo -e "  ${COLOR_MUTED}${commit_msg}${COLOR_RESET}"
 
-    git -C "$work_dir" add -A 2>/dev/null
+    while IFS= read -r archivo; do
+        [ -z "$archivo" ] && continue
+        git -C "$work_dir" add "$archivo" 2>/dev/null
+    done <<< "$filtered_files"
     local commit_created=false
     if git -C "$work_dir" commit -m "$commit_msg" 2>/dev/null; then
         echo -e "  ${COLOR_SUCCESS}✓ Commit creado en ${rama_destino}${COLOR_RESET}"

@@ -115,4 +115,5 @@ Script bash ejecutado desde el directorio del proyecto Salesforce.
 - El script se ejecuta desde el directorio raíz del repo git (`suratech-salesforce-app`)
 - `PROJECT_ROOT` se resuelve con `git rev-parse --show-toplevel`
 - La función `crear_commit_hacia_uat()` usa worktree temporal para no cambiar la rama activa. Si la rama destino es la misma que la rama actual, trabaja directamente en `PROJECT_ROOT` sin crear worktree.
+- El commit en `crear_commit_hacia_uat()` hace `git add` archivo por archivo solo con los archivos del PR (`filtered_files`). **No usar `git add -A`** — agregaría archivos ajenos al PR que estén pendientes en la rama (ej: `delta-deploy-job.yaml`).
 - Los componentes híbridos son aquellos que tienen metadata CORE y Vlocity simultáneamente — se deben desplegar en orden específico.
