@@ -397,24 +397,21 @@ function mostrar_confirmacion() {
         *) color_code="$COLOR_PRIMARY" ;;
     esac
 
-    # Construir contenido: ◎ OPERACION  TIPO  →  ORG
-    local texto="◎ $(printf '%-9s' "$operacion") ${tipo}  →  $org_name"
+    # Solo chars ASCII/narrow — sin Unicode ambiguo para evitar desfase visual
+    local texto="$(printf '%-9s' "$operacion")  ${tipo}  >  ${org_name}"
 
-    # Calcular ancho dinámico basado en el texto (◎ ocupa 2 espacios visuales)
-    local texto_len=$((${#texto} + 1))
-    local ancho=$((texto_len + 1))
-    local espacios=" "
-
-    # Crear borde
-    local borde=""
-    for ((i=0; i<ancho; i++)); do
-        borde="${borde}─"
-    done
+    # Caja de ancho fijo (el texto típico es ~47 chars, box_inner=58 da margen)
+    local box_inner=58
+    local text_len=${#texto}
+    local right_pad=$(( box_inner - text_len - 2 ))
+    [ $right_pad -lt 1 ] && right_pad=1
+    local border=$(printf '─%.0s' $(seq 1 $box_inner))
+    local rpad=$(printf '%*s' "$right_pad" '')
 
     echo ""
-    echo -e "  ${color_code}┌${borde}┐${COLOR_RESET}"
-    echo -e "  ${color_code}│${COLOR_RESET} ${texto}${espacios}${color_code}│${COLOR_RESET}"
-    echo -e "  ${color_code}└${borde}┘${COLOR_RESET}"
+    echo -e "  ${color_code}╭${border}╮${COLOR_RESET}"
+    echo -e "  ${color_code}│${COLOR_RESET}  ${texto}${rpad}${color_code}│${COLOR_RESET}"
+    echo -e "  ${color_code}╰${border}╯${COLOR_RESET}"
     echo -e "  ${MUTED}${descripcion}${COLOR_RESET}"
     echo ""
 }
@@ -2548,6 +2545,16 @@ do
                         if [ -z "$ORG_ORIGEN" ]; then
                             continue
                         fi
+                        # Confirmación
+                        org_name=$(get_org_name "$ORG_ORIGEN")
+                        mostrar_confirmacion "RETRIEVE" "${MANIFEST_DIR}/${XML_COMPONENTES}" "$org_name" "WARNING" "Descarga de metadata CORE"
+                        echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
+                        read confirmacion
+                        if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                            echo "Retrieve cancelado. Volviendo al menú..."
+                            sleep 1
+                            continue
+                        fi
                         echo -e "INICIA PROCESO RETRIEVE XML...\n"
                         cd "$PROJECT_ROOT"
                         sf project retrieve start --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_ORIGEN} --ignore-conflicts
@@ -2865,6 +2872,16 @@ do
                     1) # Retrieve YAML
                         seleccionar_org_origen
                         if [ -z "$ORG_ORIGEN" ]; then
+                            continue
+                        fi
+                        # Confirmación
+                        org_name=$(get_org_name "$ORG_ORIGEN")
+                        mostrar_confirmacion "RETRIEVE" "${MANIFEST_DIR}/${YAML_COMPONENTES}" "$org_name" "WARNING" "Descarga de metadata Vlocity"
+                        echo -e "  ${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea continuar? (S/N):${COLOR_RESET} "
+                        read confirmacion
+                        if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                            echo "Retrieve cancelado. Volviendo al menú..."
+                            sleep 1
                             continue
                         fi
                         echo -e "INICIA PROCESO RETRIEVE YAML...\n"
