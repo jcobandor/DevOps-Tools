@@ -43,7 +43,7 @@ function configurar_banca_nequi() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER=""
-    PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/CHILE/suratech-salesforce-app"
 }
 
 
@@ -2556,8 +2556,8 @@ do
                             continue
                         fi
                         echo -e "INICIA PROCESO RETRIEVE XML...\n"
-                        cd "$PROJECT_ROOT"
-                        sf project retrieve start --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_ORIGEN} --ignore-conflicts
+                        cd "$PROJECT_ROOT" || { echo "Error: no se pudo acceder a $PROJECT_ROOT"; read foo; continue; }
+                        sf project retrieve start --manifest "${PROJECT_ROOT}/${MANIFEST_DIR}/${XML_COMPONENTES}" --target-org ${ORG_ORIGEN} --ignore-conflicts
                         cd "$SCRIPT_DIR"
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
