@@ -39,7 +39,7 @@ function configurar_viajes() {
 
 function configurar_banca_nequi() {
     PROYECTO="AUTOS CL"
-    MANIFEST_DIR="manifest/Autos"
+    MANIFEST_DIR="manifest/autos"
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER=""
