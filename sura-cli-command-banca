@@ -11,6 +11,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #ORG_ORIGEN='devcb@sura.com.uat'
 #ORG_ORIGEN='juan.obando@sura.com.prod' #PROD
 
+# ============================================================================
+# RUTAS DE PROYECTOS - Ajusta aquí si cambias de máquina o ruta de carpeta
+# ============================================================================
+ROOT_BANCA="/Users/jcobandor84/Documents/NESPON/SURA/BANCA/suratech-salesforce-app"
+ROOT_CHILE="/Users/jcobandor84/Documents/NESPON/SURA/CHILE/suratech-salesforce-app"
+
 # Variables de proyecto (se configuran al seleccionar BANCA o VIAJES)
 PROYECTO=""
 MANIFEST_DIR=""
@@ -25,7 +31,7 @@ function configurar_banca() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER="juan.obando@suratechcol.com.sitbanca"
-    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/BANCA/suratech-salesforce-app"
+    PROJECT_ROOT="$ROOT_BANCA"
 }
 
 function configurar_viajes() {
@@ -34,7 +40,7 @@ function configurar_viajes() {
     XML_COMPONENTES="package-viajes.xml"
     YAML_COMPONENTES="package-viajes.yaml"
     ORG_TRACKING_TRIGGER="juan.obando@nespon.com.sitviajes"
-    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/BANCA/suratech-salesforce-app"
+    PROJECT_ROOT="$ROOT_BANCA"
 }
 
 function configurar_banca_nequi() {
@@ -43,7 +49,7 @@ function configurar_banca_nequi() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER=""
-    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/BANCA/suratech-salesforce-app"
+    PROJECT_ROOT="$ROOT_CHILE"
 }
 
 
@@ -371,9 +377,12 @@ function get_org_name() {
         *buildviajes*) echo "BUILDVIAJES" ;;
         *sitviajes*) echo "SITVIAJES" ;;
         *preuat*) echo "PRE-UAT" ;;
-        *uat*) echo "UAT" ;;
+        *chile.preintegra*) echo "PREINTEGRA" ;;
+        *chile.integracion*) echo "INTEGRACION" ;;
         *chile.autos*) echo "AUTOS" ;;
+        *chile.uat*) echo "UAT CHILE" ;;
         *chile.prod*) echo "PROD CHILE" ;;
+        *uat*) echo "UAT" ;;
         *jean@*|*produccion*|*prod*) echo "PROD" ;;
         *nespon*) echo "NESPON" ;;
         *) echo "ORG" ;;
