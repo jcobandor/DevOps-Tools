@@ -25,7 +25,7 @@ function configurar_banca() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER="juan.obando@suratechcol.com.sitbanca"
-    PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/BANCA/suratech-salesforce-app"
 }
 
 function configurar_viajes() {
@@ -34,7 +34,7 @@ function configurar_viajes() {
     XML_COMPONENTES="package-viajes.xml"
     YAML_COMPONENTES="package-viajes.yaml"
     ORG_TRACKING_TRIGGER="juan.obando@nespon.com.sitviajes"
-    PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
+    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/BANCA/suratech-salesforce-app"
 }
 
 function configurar_banca_nequi() {
@@ -43,7 +43,7 @@ function configurar_banca_nequi() {
     XML_COMPONENTES="package.xml"
     YAML_COMPONENTES="package.yaml"
     ORG_TRACKING_TRIGGER=""
-    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/CHILE/suratech-salesforce-app"
+    PROJECT_ROOT="/Users/jcobandor84/Documents/NESPON/SURA/BANCA/suratech-salesforce-app"
 }
 
 
