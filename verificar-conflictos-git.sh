@@ -233,14 +233,14 @@ if [ "$DIFERENCIAS" -eq 0 ]; then
     if [[ "$generar_package" =~ ^[Ss]$ ]]; then
         echo ""
         echo -e "${COLOR_INFO}Generando package.xml de componentes CORE...${COLOR_RESET}"
-        echo -e "${COLOR_MUTED}Ejecutando: sf sgd source delta --to $RAMA_ORIGEN --from $RAMA_DESTINO --output-dir .${COLOR_RESET}"
+        echo -e "${COLOR_MUTED}Ejecutando: sf sgd source delta --to $RAMA_ORIGEN --from origin/$RAMA_DESTINO --output-dir .${COLOR_RESET}"
         echo ""
 
         # Cambiar al directorio raíz del proyecto
         cd "$(git rev-parse --show-toplevel)" || exit 1
 
         # Ejecutar el comando de generación
-        if sf sgd source delta --to "$RAMA_ORIGEN" --from "$RAMA_DESTINO" --output-dir .; then
+        if sf sgd source delta --to "$RAMA_ORIGEN" --from "origin/$RAMA_DESTINO" --output-dir .; then
             echo ""
 
             # Mostrar resumen del package generado
@@ -481,14 +481,14 @@ else
         if [[ "$generar_package" =~ ^[Ss]$ ]]; then
             echo ""
             echo -e "${COLOR_INFO}Generando package.xml de componentes CORE...${COLOR_RESET}"
-            echo -e "${COLOR_MUTED}Ejecutando: sf sgd source delta --to $RAMA_ORIGEN --from $RAMA_DESTINO --output-dir .${COLOR_RESET}"
+            echo -e "${COLOR_MUTED}Ejecutando: sf sgd source delta --to $RAMA_ORIGEN --from origin/$RAMA_DESTINO --output-dir .${COLOR_RESET}"
             echo ""
 
             # Cambiar al directorio raíz del proyecto
             cd "$(git rev-parse --show-toplevel)" || exit 1
 
             # Ejecutar el comando de generación
-            if sf sgd source delta --to "$RAMA_ORIGEN" --from "$RAMA_DESTINO" --output-dir .; then
+            if sf sgd source delta --to "$RAMA_ORIGEN" --from "origin/$RAMA_DESTINO" --output-dir .; then
                 echo ""
 
                 # Mostrar resumen del package generado
