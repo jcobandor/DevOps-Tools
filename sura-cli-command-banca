@@ -1565,9 +1565,8 @@ function verificar_cambios_pr() {
 
 # Función para verificar historial de cambios contra UAT
 function verificar_historial_cambios() {
-    # Obtener la ruta base del proyecto (un nivel arriba de scripts/)
+    # Obtener la ruta base del proyecto (usa PROJECT_ROOT global fijado por configurar_*)
     local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local PROJECT_ROOT="$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || pwd)"
     local PYTHON_SCRIPT="${SCRIPT_DIR}/pr_commit_report.py"
 
     # Rama por defecto

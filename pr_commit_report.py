@@ -105,9 +105,19 @@ VLOCITY_TYPE_PATHS = {
 }
 
 def get_project_root():
-    """Obtiene la raiz del proyecto (donde esta .git)"""
+    """Obtiene la raiz del proyecto git desde el directorio de trabajo actual"""
+    try:
+        result = subprocess.run(
+            'git rev-parse --show-toplevel',
+            shell=True, capture_output=True, text=True, cwd=os.getcwd()
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    # Fallback: un nivel arriba del script
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.dirname(script_dir)  # Un nivel arriba de scripts/
+    return os.path.dirname(script_dir)
 
 # Cache para evitar fetch duplicados en la misma ejecucion
 _fetched_branches = set()
@@ -3182,9 +3192,15 @@ def main():
         # Obtener raiz del proyecto
         project_root = get_project_root()
 
-        # Rutas de los manifests
-        package_xml = os.path.join(project_root, 'manifest/Salud/package.xml')
-        package_yaml = os.path.join(project_root, 'manifest/Salud/package.yaml')
+        # Rutas de los manifests (usar paths dinámicos si se proporcionaron, sino Salud por defecto)
+        if manifest_xml_path:
+            package_xml = os.path.join(project_root, manifest_xml_path)
+        else:
+            package_xml = os.path.join(project_root, 'manifest/Salud/package.xml')
+        if manifest_yaml_path:
+            package_yaml = os.path.join(project_root, manifest_yaml_path)
+        else:
+            package_yaml = os.path.join(project_root, 'manifest/Salud/package.yaml')
 
         print(f"      Package XML: {package_xml}")
         print(f"      Package YAML: {package_yaml}")
