@@ -1639,6 +1639,44 @@ print(f'  Responsable: {assigned}')
 
                 echo ""
                 echo -e "  ${MUTED}──────────────────────────────────────────────────────${COLOR_RESET}"
+
+                # Generar mensaje de Teams si el estado tiene responsable definido
+                if [ -n "$asignar_email" ]; then
+                    # Construir listado de HUs
+                    lista_hus=""
+                    for id in $hu_input; do
+                        id="${id#HU-}"
+                        lista_hus="${lista_hus}• HU-${id}\n"
+                    done
+
+                    if [ "$asignar_email" = "jose.ricardo@nespon.com" ]; then
+                        ambiente="INTEGRACIÓN"
+                        mencionar="@Jose Camilo Ricardo Viloria"
+                    else
+                        ambiente="UAT"
+                        mencionar="@brayan.polo"
+                    fi
+
+                    echo ""
+                    echo -e "  ${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════════╗${COLOR_RESET}"
+                    echo -e "  ${COLOR_SUCCESS}║       Mensaje listo para copiar en Teams                      ║${COLOR_RESET}"
+                    echo -e "  ${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════════╝${COLOR_RESET}"
+                    echo ""
+                    echo -e "──────────────────────────────────────────────────────────────────"
+                    echo -e "👋 Equipo, buenas! @Everyone\n"
+                    echo -e "🔄 Recuerden mantener siempre actualizada la rama \`development-autos\` antes de crear su rama de trabajo. Estamos migrando HU por HU hacia ${ambiente}, por lo que la rama se actualiza constantemente.\n"
+                    echo -e "\`\`\`"
+                    echo -e "git checkout development-autos"
+                    echo -e "git pull origin development-autos"
+                    echo -e "\`\`\`\n"
+                    echo -e "✅ Se acaban de pasar a ${ambiente} las siguientes HUs:\n"
+                    echo -e "${lista_hus}"
+                    echo -e "🚀 ${mencionar} Quedan disponibles para que las revises y valides.\n"
+                    echo -e "Cualquier duda estoy pendiente. 💬"
+                    echo -e "──────────────────────────────────────────────────────────────────"
+                fi
+
+                echo ""
                 echo -e "  ${MUTED}Presiona ENTER para volver${COLOR_RESET}"
                 read foo
             ;;

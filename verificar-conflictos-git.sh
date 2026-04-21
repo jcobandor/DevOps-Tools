@@ -4,6 +4,10 @@
 # Script para Verificar Conflictos entre Ramas
 ################################################################################
 
+# Ruta absoluta al directorio de DevOps-Tools (donde vive este script y generate-delta-deploy-job.js)
+DEVOPS_TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GENERATE_DELTA_SCRIPT="${DEVOPS_TOOLS_DIR}/generate-delta-deploy-job.js"
+
 # Colores básicos compatibles con cualquier terminal
 COLOR_PRIMARY="\033[0;35m"     # Magenta
 COLOR_ACCENT="\033[0;36m"      # Cyan
@@ -251,23 +255,26 @@ if [ "$DIFERENCIAS" -eq 0 ]; then
                 # Contar total de metadatos (members)
                 TOTAL_MEMBERS=$(grep -c "<members>" package/package.xml)
                 echo -e "${COLOR_INFO}Total de metadatos: ${COLOR_ACCENT}$TOTAL_MEMBERS${COLOR_RESET}"
-
-                # Mostrar primeras líneas del package
                 echo ""
-                echo -e "${COLOR_MUTED}Primeros componentes:${COLOR_RESET}"
-                head -20 package/package.xml | tail -15
-                echo -e "${COLOR_MUTED}...${COLOR_RESET}"
+                echo -e "${COLOR_MUTED}Componentes CORE detectados:${COLOR_RESET}"
+                python3 -c "
+import xml.etree.ElementTree as ET
+tree = ET.parse('package/package.xml')
+ns = {'sf': 'http://soap.sforce.com/2006/04/metadata'}
+for t in tree.findall('sf:types', ns):
+    name = t.find('sf:name', ns).text
+    members = [m.text for m in t.findall('sf:members', ns)]
+    print(f'  \033[0;36m{name}\033[0m \033[2m({len(members)})\033[0m')
+    for m in members:
+        print(f'    \033[0;35m→\033[0m {m}')
+"
                 echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
                 echo ""
 
                 # Copiar metadatos al manifest del proyecto
-                echo -e "${COLOR_INFO}Actualizando ${MANIFEST_DIR}/package.xml...${COLOR_RESET}"
-
-                # Extraer los tipos de metadata del package generado (todo entre <Package> y <version>)
                 TIPOS_METADATA=$(sed -n '/<types>/,/<\/types>/p' package/package.xml)
 
                 if [ -n "$TIPOS_METADATA" ]; then
-                    # Crear el nuevo package.xml con los tipos de metadata
                     cat > ${MANIFEST_DIR}/package.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
@@ -275,7 +282,12 @@ $TIPOS_METADATA
     <version>65.0</version>
 </Package>
 EOF
-                    echo -e "${COLOR_SUCCESS}✓ Metadatos copiados a: ${COLOR_ACCENT}${MANIFEST_DIR}/package.xml${COLOR_RESET}"
+                    echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗${COLOR_RESET}"
+                    echo -e "${COLOR_SUCCESS}║  ✓  package.xml actualizado correctamente                 ║${COLOR_RESET}"
+                    echo -e "${COLOR_SUCCESS}╠═══════════════════════════════════════════════════════════╣${COLOR_RESET}"
+                    echo -e "${COLOR_SUCCESS}║  Archivo:      ${COLOR_ACCENT}${MANIFEST_DIR}/package.xml${COLOR_SUCCESS}$(printf '%*s' $((27 - ${#MANIFEST_DIR})) '')║${COLOR_RESET}"
+                    echo -e "${COLOR_SUCCESS}║  Componentes:  ${COLOR_ACCENT}${TOTAL_MEMBERS} metadatos CORE${COLOR_SUCCESS}$(printf '%*s' $((27 - ${#TOTAL_MEMBERS})) '')║${COLOR_RESET}"
+                    echo -e "${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
                 else
                     echo -e "${COLOR_WARNING}⚠ No se encontraron tipos de metadata para copiar${COLOR_RESET}"
                 fi
@@ -327,10 +339,10 @@ EOF
             echo -e "${COLOR_INFO}Total de archivos modificados: ${COLOR_ACCENT}$TOTAL_CHANGES${COLOR_RESET}"
             echo ""
 
-            echo -e "${COLOR_MUTED}Paso 2: node generate-delta-deploy-job.js${COLOR_RESET}"
+            echo -e "${COLOR_MUTED}Paso 2: node ${GENERATE_DELTA_SCRIPT}${COLOR_RESET}"
 
             # Ejecutar script de generación
-            if node generate-delta-deploy-job.js; then
+            if node "$GENERATE_DELTA_SCRIPT"; then
                 echo ""
 
                 # Mostrar resumen del archivo generado
@@ -344,6 +356,12 @@ EOF
                     echo -e "${COLOR_INFO}Resumen del package.yaml:${COLOR_RESET}"
                     echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
                     echo -e "${COLOR_INFO}Total de metadatos: ${COLOR_ACCENT}$TOTAL_VLOCITY${COLOR_RESET}"
+                    echo ""
+                    echo -e "${COLOR_MUTED}Componentes Vlocity detectados:${COLOR_RESET}"
+                    while IFS= read -r componente; do
+                        nombre=$(echo "$componente" | sed 's/^[[:space:]]*-[[:space:]]*//')
+                        echo -e "  ${COLOR_ACCENT}→${COLOR_RESET} ${nombre}"
+                    done <<< "$VLOCITY_COMPONENTS"
                     echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
                     echo ""
 
@@ -369,7 +387,12 @@ supportForceDeploy: true
 verbose: false
 deltaGeneration: false
 EOF
-                        echo -e "${COLOR_SUCCESS}✓ Componentes Vlocity copiados a: ${COLOR_ACCENT}${MANIFEST_DIR}/package.yaml${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  ✓  package.yaml actualizado correctamente                ║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╠═══════════════════════════════════════════════════════════╣${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  Archivo:      ${COLOR_ACCENT}${MANIFEST_DIR}/package.yaml${COLOR_SUCCESS}$(printf '%*s' $((26 - ${#MANIFEST_DIR})) '')║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  Componentes:  ${COLOR_ACCENT}${TOTAL_VLOCITY} metadatos Vlocity${COLOR_SUCCESS}$(printf '%*s' $((24 - ${#TOTAL_VLOCITY})) '')║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
                     else
                         echo -e "${COLOR_WARNING}⚠ No se encontraron componentes Vlocity para copiar${COLOR_RESET}"
                     fi
@@ -499,12 +522,19 @@ else
                     # Contar total de metadatos (members)
                     TOTAL_MEMBERS=$(grep -c "<members>" package/package.xml)
                     echo -e "${COLOR_INFO}Total de metadatos: ${COLOR_ACCENT}$TOTAL_MEMBERS${COLOR_RESET}"
-
-                    # Mostrar primeras líneas del package
                     echo ""
-                    echo -e "${COLOR_MUTED}Primeros componentes:${COLOR_RESET}"
-                    head -20 package/package.xml | tail -15
-                    echo -e "${COLOR_MUTED}...${COLOR_RESET}"
+                    echo -e "${COLOR_MUTED}Componentes CORE detectados:${COLOR_RESET}"
+                    python3 -c "
+import xml.etree.ElementTree as ET
+tree = ET.parse('package/package.xml')
+ns = {'sf': 'http://soap.sforce.com/2006/04/metadata'}
+for t in tree.findall('sf:types', ns):
+    name = t.find('sf:name', ns).text
+    members = [m.text for m in t.findall('sf:members', ns)]
+    print(f'  \033[0;36m{name}\033[0m \033[2m({len(members)})\033[0m')
+    for m in members:
+        print(f'    \033[0;35m→\033[0m {m}')
+"
                     echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
                     echo ""
 
@@ -523,7 +553,12 @@ $TIPOS_METADATA
     <version>65.0</version>
 </Package>
 EOF
-                        echo -e "${COLOR_SUCCESS}✓ Metadatos copiados a: ${COLOR_ACCENT}${MANIFEST_DIR}/package.xml${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  ✓  package.xml actualizado correctamente                 ║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╠═══════════════════════════════════════════════════════════╣${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  Archivo:      ${COLOR_ACCENT}${MANIFEST_DIR}/package.xml${COLOR_SUCCESS}$(printf '%*s' $((27 - ${#MANIFEST_DIR})) '')║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  Componentes:  ${COLOR_ACCENT}${TOTAL_MEMBERS} metadatos CORE${COLOR_SUCCESS}$(printf '%*s' $((27 - ${#TOTAL_MEMBERS})) '')║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
                     else
                         echo -e "${COLOR_WARNING}⚠ No se encontraron tipos de metadata para copiar${COLOR_RESET}"
                     fi
@@ -575,10 +610,10 @@ EOF
                 echo -e "${COLOR_INFO}Total de archivos modificados: ${COLOR_ACCENT}$TOTAL_CHANGES${COLOR_RESET}"
                 echo ""
 
-                echo -e "${COLOR_MUTED}Paso 2: node generate-delta-deploy-job.js${COLOR_RESET}"
+                echo -e "${COLOR_MUTED}Paso 2: node ${GENERATE_DELTA_SCRIPT}${COLOR_RESET}"
 
                 # Ejecutar script de generación
-                if node generate-delta-deploy-job.js; then
+                if node "$GENERATE_DELTA_SCRIPT"; then
                     echo ""
 
                     # Mostrar resumen del archivo generado
@@ -592,6 +627,12 @@ EOF
                         echo -e "${COLOR_INFO}Resumen del package.yaml:${COLOR_RESET}"
                         echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
                         echo -e "${COLOR_INFO}Total de metadatos: ${COLOR_ACCENT}$TOTAL_VLOCITY${COLOR_RESET}"
+                        echo ""
+                        echo -e "${COLOR_MUTED}Componentes Vlocity detectados:${COLOR_RESET}"
+                        while IFS= read -r componente; do
+                            nombre=$(echo "$componente" | sed 's/^[[:space:]]*-[[:space:]]*//')
+                            echo -e "  ${COLOR_ACCENT}→${COLOR_RESET} ${nombre}"
+                        done <<< "$VLOCITY_COMPONENTS"
                         echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
                         echo ""
 
@@ -617,7 +658,12 @@ supportForceDeploy: true
 verbose: false
 deltaGeneration: false
 EOF
-                            echo -e "${COLOR_SUCCESS}✓ Componentes Vlocity copiados a: ${COLOR_ACCENT}${MANIFEST_DIR}/package.yaml${COLOR_RESET}"
+                            echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  ✓  package.yaml actualizado correctamente                ║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╠═══════════════════════════════════════════════════════════╣${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  Archivo:      ${COLOR_ACCENT}${MANIFEST_DIR}/package.yaml${COLOR_SUCCESS}$(printf '%*s' $((26 - ${#MANIFEST_DIR})) '')║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}║  Componentes:  ${COLOR_ACCENT}${TOTAL_VLOCITY} metadatos Vlocity${COLOR_SUCCESS}$(printf '%*s' $((24 - ${#TOTAL_VLOCITY})) '')║${COLOR_RESET}"
+                        echo -e "${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
                         else
                             echo -e "${COLOR_WARNING}⚠ No se encontraron componentes Vlocity para copiar${COLOR_RESET}"
                         fi
