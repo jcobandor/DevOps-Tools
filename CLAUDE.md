@@ -150,13 +150,46 @@ Script bash ejecutado desde el directorio del proyecto Salesforce.
    - manifest/autos/package.yaml (componentes Vlocity)
 ```
 
-**Cuando el sprint cierra (todas las HUs mergeadas):**
+**En cualquier momento (por HU aprobada):**
 
 ```
 4. PR sura-autos-sprint01 → development-autos  (sincronizar rama de desarrollo)
-5. PR sura-autos-sprint01 → Integracion        (subir sprint completo a SIT)
-   - Deploy a ambiente INTEGRACION
-   - Notificar a QA para validación
+   Se puede hacer PR por PR sin esperar el cierre del sprint.
+
+5. PR sura-autos-sprint01 → integracion        (migración HU por HU para QA)
+   Se puede hacer de forma incremental, HU por HU, sin esperar el sprint completo.
+```
+
+**En fecha de corte (paquete completo):**
+
+```
+6. PR sura-autos-sprint01 → uat    (todas las HUs validadas en integracion)
+7. PR sura-autos-sprint01 → main   (después de UAT aprobado)
+```
+
+### Estándar de PRs creados por Release Manager
+
+Cuando el Release Manager crea un PR (sync, migración o cierre de sprint), debe seguir esta nomenclatura para diferenciarlo de los PRs de desarrolladores:
+
+**Título:**
+```
+[RELEASE] HU-XXXX descripción - Sync/Migración origen → destino
+```
+Ejemplo:
+```
+[RELEASE] HU-35365-FIX Mockup POST /v1/{product}/leads - Sync sprint01 → development-autos
+```
+
+**Descripción:**
+```markdown
+## Release Sync
+
+**Sprint:** sura-autos-sprintXX
+**HUs incluidas:** #XXXX, #XXXX
+**Tipo:** Sincronización rama de desarrollo | Migración a integracion | Cierre de sprint
+
+> Este PR es generado por el equipo de Release para mantener [rama-destino] actualizada
+> con los cambios aprobados del sprint.
 ```
 
 **Si QA rechaza una HU:**
