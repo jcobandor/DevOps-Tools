@@ -110,6 +110,87 @@ Script bash ejecutado desde el directorio del proyecto Salesforce.
 
 ---
 
+## Pipeline de desarrollo — SURA CHILE (AUTOS CL)
+
+### Flujo del Desarrollador
+
+```
+1. git checkout development-autos
+   git pull origin development-autos
+
+2. git checkout -b feature/HU-XXXX
+
+3. [Desarrolla los cambios]
+
+4. git add .
+   git commit -m "HU-XXXX: descripción del cambio"
+   git push origin feature/HU-XXXX
+
+5. Crea PR en Azure DevOps:
+   feature/HU-XXXX → sura-autos-sprint01
+   - Título:       HU-XXXX: descripción
+   - Descripción:  Disponible para pruebas aliado #HU-XXXX
+   - Reviewer:     Juan Carlos Obando Ramos
+   - Work Items:   Relacionar la HU en la sección de work items del PR
+
+6. En Azure DevOps:
+   - Cambia estado HU: En proceso → Disponible para SIT
+   - Asigna la HU a Juan Carlos Obando Ramos
+```
+
+### Flujo del Release Manager / DevOps
+
+**Por cada HU que llega:**
+
+```
+1. Revisar y aprobar PR feature/HU-XXXX → sura-autos-sprint01
+2. Mergear
+3. Actualizar manifests en sura-autos-sprint01:
+   - manifest/autos/package.xml  (componentes CORE)
+   - manifest/autos/package.yaml (componentes Vlocity)
+```
+
+**Cuando el sprint cierra (todas las HUs mergeadas):**
+
+```
+4. PR sura-autos-sprint01 → development-autos  (sincronizar rama de desarrollo)
+5. PR sura-autos-sprint01 → Integracion        (subir sprint completo a SIT)
+   - Deploy a ambiente INTEGRACION
+   - Notificar a QA para validación
+```
+
+**Si QA rechaza una HU:**
+
+```
+6. Desarrollador corrige sobre feature/HU-XXXX-fix (desde sura-autos-sprint01)
+   PR feature/HU-XXXX-fix → sura-autos-sprint01
+   Volver al paso 5
+```
+
+**Si QA aprueba:**
+
+```
+7. PR sura-autos-sprint01 → uat
+   - Deploy a ambiente UAT
+   - Notificar a cliente para pruebas de aceptación
+```
+
+**Si UAT aprueba:**
+
+```
+8. PR sura-autos-sprint01 → main
+   - Deploy a PRODUCCIÓN
+```
+
+**Al inicio del siguiente sprint:**
+
+```
+9. Crear sura-autos-sprint02 desde development-autos
+   (que ya está sincronizado con el sprint anterior)
+```
+
+---
+
 ## Notas importantes
 
 - El script se ejecuta desde el directorio raíz del repo git (`suratech-salesforce-app`)
