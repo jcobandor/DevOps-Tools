@@ -1455,22 +1455,238 @@ function mostrar_menu_git() {
     clear
     echo ""
     echo -e "  ${TITLE}"
-    echo "  ╭───────────────────────────────────╮"
-    echo "  │        Release - Opciones         │"
-    echo "  ╰───────────────────────────────────╯"
+    echo "  ╭────────────────────────────────────────────────────────────────────────────────╮"
+    echo "  │                              Release - Opciones                                │"
+    echo "  ╰────────────────────────────────────────────────────────────────────────────────╯"
     echo -e "  ${COLOR_RESET}"
     echo ""
-    echo -e "  ${OPTION}1.${COLOR_RESET}  Verificar Pull Requests"
-    echo -e "  ${OPTION}2.${COLOR_RESET}  Reporte de Componentes por Manifest"
-    echo -e "  ${OPTION}3.${COLOR_RESET}  Reporte de Componentes por PR"
-    echo -e "  ${OPTION}4.${COLOR_RESET}  Reporte de PRs Aprobados por Periodo"
-    echo -e "  ${OPTION}5.${COLOR_RESET}  Migrar componentes de un PR a otra rama"
-    echo -e "  ${OPTION}6.${COLOR_RESET}  Monitor Automático de PRs"
+    echo -e "  ${OPTION}1.${COLOR_RESET}  Analizar Manifest y Conflictos  ${MUTED}› Genera XML/YAML e identifica conflictos en un PR del desarrollador${COLOR_RESET}"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Historial de Commits            ${MUTED}› Audita commits por Manifest, PR o Periodo${COLOR_RESET}"
+    echo -e "  ${OPTION}3.${COLOR_RESET}  Replicar PR en Rama             ${MUTED}› Migra un PR exacto sin depender de retrieve${COLOR_RESET}"
+    echo -e "  ${OPTION}4.${COLOR_RESET}  Monitor de PRs (Jarvis)         ${MUTED}› Monitoreo automático cada 30 min${COLOR_RESET}"
+    echo -e "  ${OPTION}5.${COLOR_RESET}  Consultar Estado de HUs         ${MUTED}› Estado y responsable en Azure DevOps${COLOR_RESET}"
     echo ""
     echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
     echo ""
-    echo -e "  ${DIM}───────────────────────────────────${COLOR_RESET}"
+    echo -e "  ${DIM}────────────────────────────────────────────────────────────────────────────────${COLOR_RESET}"
     echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+}
+
+# Función para consultar estado y responsable de HUs en Azure DevOps
+function consultar_estado_hus() {
+    local AZ_ORG="https://dev.azure.com/SuratechDevOpsColombia"
+
+    while true; do
+        clear
+        echo ""
+        echo -e "  ${TITLE}"
+        echo "  ╭────────────────────────────────────────────────────────╮"
+        echo "  │               Gestión de Estado de HUs                 │"
+        echo "  ╰────────────────────────────────────────────────────────╯"
+        echo -e "  ${COLOR_RESET}"
+        echo -e "  ${OPTION}1.${COLOR_RESET}  Consultar estado     ${MUTED}› Muestra estado y responsable de HUs${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  Actualizar estado    ${MUTED}› Cambia el estado de una o varias HUs${COLOR_RESET}"
+        echo ""
+        echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+        echo ""
+        echo -e "  ${DIM}────────────────────────────────────────────────────────${COLOR_RESET}"
+        echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+        read opcion_hu
+
+        case $opcion_hu in
+            0) return 0 ;;
+
+            1) # Consultar estado
+                echo ""
+                echo -e "  ${MUTED}Ingrese los IDs de las HUs a consultar${COLOR_RESET}"
+                echo -e "  ${MUTED}Si son varias, sepárelas con espacios:${COLOR_RESET}"
+                echo -e "  ${COLOR_ACCENT}  Ej: 35365 35360 35367${COLOR_RESET}"
+                echo ""
+                echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+                read hu_input
+
+                if [ -z "$hu_input" ]; then
+                    echo -e "\n  ${COLOR_WARNING}No se ingresaron IDs.${COLOR_RESET}"
+                    sleep 1; continue
+                fi
+
+                echo ""
+                echo -e "  ${MUTED}──────────────────────────────────────────────────────${COLOR_RESET}"
+
+                for id in $hu_input; do
+                    id="${id#HU-}"
+                    echo ""
+                    echo -e "  ${COLOR_ACCENT}HU-${id}${COLOR_RESET}"
+
+                    resultado=$(az boards work-item show --id "$id" --org "$AZ_ORG" 2>&1)
+
+                    if echo "$resultado" | grep -q "ERROR\|error"; then
+                        echo -e "  ${COLOR_ERROR}✗ No se pudo obtener HU-${id}. Verifica el ID.${COLOR_RESET}"
+                        continue
+                    fi
+
+                    echo "$resultado" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+f = data.get('fields', {})
+assigned = f.get('System.AssignedTo', '')
+if isinstance(assigned, dict):
+    assigned = assigned.get('displayName', '-')
+print(f'  Título:      {f.get(\"System.Title\", \"-\")}')
+print(f'  Estado:      {f.get(\"System.State\", \"-\")}')
+print(f'  Responsable: {assigned}')
+"
+                    echo -e "  ${MUTED}──────────────────────────────────────────────────────${COLOR_RESET}"
+                done
+
+                echo ""
+                echo -e "  ${MUTED}Presiona ENTER para volver${COLOR_RESET}"
+                read foo
+            ;;
+
+            2) # Actualizar estado
+                echo ""
+                echo -e "  ${MUTED}Ingrese los IDs de las HUs a actualizar${COLOR_RESET}"
+                echo -e "  ${MUTED}Si son varias, sepárelas con espacios:${COLOR_RESET}"
+                echo -e "  ${COLOR_ACCENT}  Ej: 35365 35360 35367${COLOR_RESET}"
+                echo ""
+                echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+                read hu_input
+
+                if [ -z "$hu_input" ]; then
+                    echo -e "\n  ${COLOR_WARNING}No se ingresaron IDs.${COLOR_RESET}"
+                    sleep 1; continue
+                fi
+
+                echo ""
+                echo -e "  ${MUTED}Seleccione el nuevo estado:${COLOR_RESET}"
+                echo ""
+                echo -e "  ${OPTION}1.${COLOR_RESET}  En proceso"
+                echo -e "  ${OPTION}2.${COLOR_RESET}  Disponible para SIT"
+                echo -e "  ${OPTION}3.${COLOR_RESET}  Disponible para pruebas aliado"
+                echo -e "  ${OPTION}4.${COLOR_RESET}  Disponible para pruebas"
+                echo -e "  ${OPTION}5.${COLOR_RESET}  Cerrado"
+                echo ""
+                echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+                read opcion_estado
+
+                case $opcion_estado in
+                    1) nuevo_estado="En proceso"                    ; asignar_email="" ;;
+                    2) nuevo_estado="Disponible para SIT"           ; asignar_email="" ;;
+                    3) nuevo_estado="Disponible para pruebas aliado"; asignar_email="jose.ricardo@nespon.com" ;;
+                    4) nuevo_estado="Disponible para pruebas"       ; asignar_email="brayan.polo@sofka.com.co" ;;
+                    5) nuevo_estado="Cerrado"                       ; asignar_email="" ;;
+                    *)
+                        echo -e "\n  ${COLOR_ERROR}Opción inválida.${COLOR_RESET}"
+                        sleep 1; continue
+                    ;;
+                esac
+
+                # Preguntar si desea reasignar responsable (solo para estados con responsable definido)
+                reasignar="n"
+                if [ -n "$asignar_email" ]; then
+                    echo ""
+                    if [ "$asignar_email" = "jose.ricardo@nespon.com" ]; then
+                        nombre_responsable="Jose Camilo Ricardo Viloria"
+                    else
+                        nombre_responsable="brayan.polo"
+                    fi
+                    echo -e "  ${COLOR_INFO}¿Desea asignar a ${nombre_responsable} (${asignar_email}) como responsable? (s/n)${COLOR_RESET}"
+                    echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+                    read reasignar
+                fi
+
+                echo ""
+                echo -e "  ${COLOR_WARNING}¿Confirma cambiar el estado a \"${nuevo_estado}\" para las HUs: ${hu_input}? (s/n)${COLOR_RESET}"
+                echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+                read confirmacion
+
+                if [[ ! "$confirmacion" =~ ^[Ss]$ ]]; then
+                    echo -e "\n  ${COLOR_MUTED}Operación cancelada.${COLOR_RESET}"
+                    sleep 1; continue
+                fi
+
+                echo ""
+                echo -e "  ${MUTED}──────────────────────────────────────────────────────${COLOR_RESET}"
+
+                for id in $hu_input; do
+                    id="${id#HU-}"
+                    echo ""
+                    echo -e -n "  ${COLOR_ACCENT}HU-${id}${COLOR_RESET} → actualizando estado... "
+
+                    resultado=$(az boards work-item update --id "$id" \
+                        --state "$nuevo_estado" \
+                        --org "$AZ_ORG" 2>&1)
+
+                    if echo "$resultado" | grep -q "ERROR\|error"; then
+                        echo -e "${COLOR_ERROR}✗ Error al actualizar estado.${COLOR_RESET}"
+                    else
+                        echo -e "${COLOR_SUCCESS}✓ \"${nuevo_estado}\"${COLOR_RESET}"
+
+                        if [[ "$reasignar" =~ ^[Ss]$ ]]; then
+                            echo -e -n "  ${COLOR_ACCENT}HU-${id}${COLOR_RESET} → asignando a ${asignar_email}... "
+                            res_asig=$(az boards work-item update --id "$id" \
+                                --assigned-to "$asignar_email" \
+                                --org "$AZ_ORG" 2>&1)
+                            if echo "$res_asig" | grep -q "ERROR\|error"; then
+                                echo -e "${COLOR_ERROR}✗ Error al asignar responsable.${COLOR_RESET}"
+                            else
+                                echo -e "${COLOR_SUCCESS}✓ Asignado a ${nombre_responsable}${COLOR_RESET}"
+                            fi
+                        fi
+                    fi
+                done
+
+                echo ""
+                echo -e "  ${MUTED}──────────────────────────────────────────────────────${COLOR_RESET}"
+                echo -e "  ${MUTED}Presiona ENTER para volver${COLOR_RESET}"
+                read foo
+            ;;
+
+            *)
+                echo -e "  ${COLOR_ERROR}Opción inválida.${COLOR_RESET}"
+                sleep 1
+            ;;
+        esac
+    done
+}
+
+# Submenú de Historial de Commits
+function historial_commits() {
+    while true; do
+        clear
+        echo ""
+        echo -e "  ${TITLE}"
+        echo "  ╭────────────────────────────────────────────────────────╮"
+        echo "  │                  Historial de Commits                  │"
+        echo "  ╰────────────────────────────────────────────────────────╯"
+        echo -e "  ${COLOR_RESET}"
+        echo -e "  ${OPTION}1.${COLOR_RESET}  Por Manifest  ${MUTED}› Audita quién tocó cada componente basado en manifest XML/YAML${COLOR_RESET}"
+        echo -e "  ${OPTION}2.${COLOR_RESET}  Por PR        ${MUTED}› Audita componentes de un PR específico${COLOR_RESET}"
+        echo -e "  ${OPTION}3.${COLOR_RESET}  Por Periodo   ${MUTED}› Audita commits de componentes en un rango de fechas${COLOR_RESET}"
+        echo ""
+        echo -e "  ${COLOR_SUCCESS}0.  Volver${COLOR_RESET}"
+        echo ""
+        echo -e "  ${DIM}────────────────────────────────────────────────────────${COLOR_RESET}"
+        echo -e -n "  ${COLOR_PRIMARY}→${COLOR_RESET} "
+        read opcion_historial
+
+        case $opcion_historial in
+            0) return 0 ;;
+            1) verificar_historial_cambios ;;
+            2) verificar_cambios_pr ;;
+            3)
+                verificar_cambios_por_fecha
+                echo ""
+                echo "* ENTER PARA VOLVER AL MENÚ * "
+                read foo
+            ;;
+            *)
+                echo -e "  ${COLOR_ERROR}Opción inválida.${COLOR_RESET}"
+                sleep 1
+            ;;
+        esac
+    done
 }
 
 # Función para verificar cambios de un PR vs una rama
@@ -3052,28 +3268,21 @@ do
                         echo "* ENTER PARA VOLVER AL MENÚ * "
                         read foo
                     ;;
-                    2) # Reporte de Componentes por Manifest
-                        verificar_historial_cambios
+                    2) # Historial de Commits
+                        historial_commits
                     ;;
-                    3) # Reporte de Componentes por PR
-                        verificar_cambios_pr
-                    ;;
-                    4) # Reporte de PRs Aprobados por Periodo
-                        verificar_cambios_por_fecha
-
-                        echo ""
-                        echo "* ENTER PARA VOLVER AL MENÚ * "
-                        read foo
-                    ;;
-                    5) # Migrar componentes de un PR a otra rama
+                    3) # Replicar PR en Rama
                         crear_commit_hacia_uat
 
                         echo ""
                         echo "* ENTER PARA VOLVER AL MENÚ * "
                         read foo
                     ;;
-                    6) # Monitor Automático de PRs
+                    4) # Monitor de PRs (Jarvis)
                         gestionar_monitor_prs
+                    ;;
+                    5) # Consultar Estado de HUs
+                        consultar_estado_hus
                     ;;
                     *)
                         echo "OPCIÓN INVÁLIDA..."
