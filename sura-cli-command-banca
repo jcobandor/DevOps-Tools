@@ -1614,21 +1614,22 @@ print(f'  Responsable: {assigned}')
                     echo ""
                     echo -e -n "  ${COLOR_ACCENT}HU-${id}${COLOR_RESET} → actualizando estado... "
 
-                    resultado=$(az boards work-item update --id "$id" \
+                    az boards work-item update --id "$id" \
                         --state "$nuevo_estado" \
-                        --org "$AZ_ORG" 2>&1)
+                        --org "$AZ_ORG" > /dev/null 2>&1
+                    local exit_estado=$?
 
-                    if echo "$resultado" | grep -q "ERROR\|error"; then
+                    if [ $exit_estado -ne 0 ]; then
                         echo -e "${COLOR_ERROR}✗ Error al actualizar estado.${COLOR_RESET}"
                     else
                         echo -e "${COLOR_SUCCESS}✓ \"${nuevo_estado}\"${COLOR_RESET}"
 
                         if [[ "$reasignar" =~ ^[Ss]$ ]]; then
                             echo -e -n "  ${COLOR_ACCENT}HU-${id}${COLOR_RESET} → asignando a ${asignar_email}... "
-                            res_asig=$(az boards work-item update --id "$id" \
+                            az boards work-item update --id "$id" \
                                 --assigned-to "$asignar_email" \
-                                --org "$AZ_ORG" 2>&1)
-                            if echo "$res_asig" | grep -q "ERROR\|error"; then
+                                --org "$AZ_ORG" > /dev/null 2>&1
+                            if [ $? -ne 0 ]; then
                                 echo -e "${COLOR_ERROR}✗ Error al asignar responsable.${COLOR_RESET}"
                             else
                                 echo -e "${COLOR_SUCCESS}✓ Asignado a ${nombre_responsable}${COLOR_RESET}"
