@@ -445,9 +445,9 @@ function aprobar_completar_pr_azure() {
         return 1
     fi
 
-    echo -e "\n${COLOR_INFO}${COLOR_BOLD}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║              Azure DevOps - Gestión de PR                 ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_INFO}${COLOR_BOLD}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│              Azure DevOps - Gestión de PR                 │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
 
     echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea aprobar y completar el PR #${pr_id} en Azure? (S/N):${COLOR_RESET} "
     read aprobar_pr
@@ -517,9 +517,9 @@ ${comentario}" --output none 2>/dev/null
         return 1
     fi
 
-    echo -e "\n${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║              PR Aprobado y Completado ✓                   ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_SUCCESS}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│              PR Aprobado y Completado ✓                   │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
 
     # Obtener y abrir Work Items asociados al PR
     echo -e "\n${COLOR_INFO}Buscando Work Items asociados al PR #${pr_id}...${COLOR_RESET}"
@@ -550,9 +550,9 @@ function guardar_tracking_componentes() {
     local manifest_file="$1"
     local tipo_componente="$2"  # CORE o VLOCITY
 
-    echo -e "\n${COLOR_SUCCESS}${COLOR_BOLD}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║           Sistema de Tracking de Componentes              ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_SUCCESS}${COLOR_BOLD}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│           Sistema de Tracking de Componentes              │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
 
     echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea guardar los componentes en el sistema de Tracking? (S/N):${COLOR_RESET} "
     read guardar_tracking
@@ -595,9 +595,9 @@ function guardar_tracking_componentes() {
     local url_pr="${URL_BASE_PR}${pr_id}"
 
     # Mostrar resumen antes de procesar
-    echo -e "\n${COLOR_INFO}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║                    Resumen de Tracking                    ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_INFO}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│                    Resumen de Tracking                    │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
     echo -e "${COLOR_TEXT}  Proyecto:        ${COLOR_ACCENT}SURA Banca${COLOR_RESET}"
     echo -e "${COLOR_TEXT}  Tipo Componente: ${COLOR_ACCENT}${tipo_componente}${COLOR_RESET}"
     echo -e "${COLOR_TEXT}  Sprint:          ${COLOR_ACCENT}${sprint_numero}${COLOR_RESET}"
@@ -680,9 +680,9 @@ function guardar_tracking_componentes() {
     rm -f "$temp_file"
 
     # Mostrar resumen final
-    echo -e "\n${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║                    Tracking Completado                    ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_SUCCESS}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│                    Tracking Completado                    │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
     echo -e "${COLOR_SUCCESS}  Componentes creados: ${componentes_creados}${COLOR_RESET}"
     if [ $componentes_fallidos -gt 0 ]; then
         echo -e "${COLOR_ERROR}  Componentes fallidos: ${componentes_fallidos}${COLOR_RESET}"
@@ -696,9 +696,9 @@ function guardar_tracking_componentes_yaml() {
     local manifest_file="$1"
     local tipo_componente="$2"  # VLOCITY
 
-    echo -e "\n${COLOR_SUCCESS}${COLOR_BOLD}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║         Sistema de Tracking de Componentes VLOCITY        ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_SUCCESS}${COLOR_BOLD}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│         Sistema de Tracking de Componentes VLOCITY        │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
 
     echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}¿Desea guardar los componentes en el sistema de Tracking? (S/N):${COLOR_RESET} "
     read guardar_tracking
@@ -741,9 +741,9 @@ function guardar_tracking_componentes_yaml() {
     local url_pr="${URL_BASE_PR}${pr_id}"
 
     # Mostrar resumen antes de procesar
-    echo -e "\n${COLOR_INFO}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║                    Resumen de Tracking                    ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_INFO}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│                    Resumen de Tracking                    │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
     echo -e "${COLOR_TEXT}  Proyecto:        ${COLOR_ACCENT}SURA Banca${COLOR_RESET}"
     echo -e "${COLOR_TEXT}  Tipo Componente: ${COLOR_ACCENT}${tipo_componente}${COLOR_RESET}"
     echo -e "${COLOR_TEXT}  Sprint:          ${COLOR_ACCENT}${sprint_numero}${COLOR_RESET}"
@@ -814,9 +814,9 @@ function guardar_tracking_componentes_yaml() {
     rm -f "$temp_file"
 
     # Mostrar resumen final
-    echo -e "\n${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
-    echo -e "║                    Tracking Completado                    ║"
-    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+    echo -e "\n${COLOR_SUCCESS}╭───────────────────────────────────────────────────────────╮"
+    echo -e "│                    Tracking Completado                    │"
+    echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
     echo -e "${COLOR_SUCCESS}  Componentes creados: ${componentes_creados}${COLOR_RESET}"
     if [ $componentes_fallidos -gt 0 ]; then
         echo -e "${COLOR_ERROR}  Componentes fallidos: ${componentes_fallidos}${COLOR_RESET}"
@@ -1149,7 +1149,7 @@ function mostrar_menu_xml() {
     echo -e "  ${COLOR_RESET}"
     echo ""
     echo -e "  ${OPTION}1.${COLOR_RESET}  Retrieve"
-    echo -e "  ${OPTION}2.${COLOR_RESET}  Run Test Deploy"
+    echo -e "  ${OPTION}2.${COLOR_RESET}  Validar y Analizar CORE         ${MUTED}› Validate deploy o escanea código Apex/LWC con PMD${COLOR_RESET}"
     echo -e "  ${OPTION}3.${COLOR_RESET}  Deploy"
     echo -e "  ${OPTION}4.${COLOR_RESET}  Run Test Destructive"
     echo -e "  ${OPTION}5.${COLOR_RESET}  Destructive"
@@ -1658,9 +1658,9 @@ print(f'  Responsable: {assigned}')
                     fi
 
                     echo ""
-                    echo -e "  ${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════════╗${COLOR_RESET}"
-                    echo -e "  ${COLOR_SUCCESS}║       Mensaje listo para copiar en Teams                      ║${COLOR_RESET}"
-                    echo -e "  ${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════════╝${COLOR_RESET}"
+                    echo -e "  ${COLOR_SUCCESS}╭───────────────────────────────────────────────────────────────╮${COLOR_RESET}"
+                    echo -e "  ${COLOR_SUCCESS}│       Mensaje listo para copiar en Teams                      │${COLOR_RESET}"
+                    echo -e "  ${COLOR_SUCCESS}╰───────────────────────────────────────────────────────────────╯${COLOR_RESET}"
                     echo ""
                     echo -e "──────────────────────────────────────────────────────────────────"
                     echo -e "👋 Equipo, buenas! @Everyone\n"
@@ -2818,26 +2818,47 @@ do
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
-                    2) # Run test deploy XML
-                        # Submenú de tipo de validación
+                    2) # Validar y Analizar CORE
+                        # Submenú: Validate Deploy / Code Analyzer
+                        echo ""
                         echo -e "${COLOR_INFO}${COLOR_BOLD}"
-                        echo "╔═══════════════════════════════════════════════╗"
-                        echo "║      Tipo de Validación - Metadata CORE       ║"
-                        echo "╚═══════════════════════════════════════════════╝"
-                        echo -e "${COLOR_INFO}╔═══════════════════════════════════════════════╗${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_ACCENT}1.${COLOR_RESET} ${COLOR_TEXT}Rápida (Sandbox)${COLOR_RESET}                          ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}     ${COLOR_MUTED}Sin tests - Validación rápida${COLOR_RESET}             ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_ACCENT}2.${COLOR_RESET} ${COLOR_TEXT}Exhaustiva (Producción)${COLOR_RESET}                   ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}     ${COLOR_MUTED}Con tests - Listo para PROD${COLOR_RESET}               ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_ACCENT}3.${COLOR_RESET} ${COLOR_TEXT}Con Clases Apex Específicas${COLOR_RESET}               ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}     ${COLOR_MUTED}Ejecuta tests específicos${COLOR_RESET}                 ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}  ${COLOR_SUCCESS}0. Volver${COLOR_RESET}                                    ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}║${COLOR_RESET}                                               ${COLOR_INFO}║${COLOR_RESET}"
-                        echo -e "${COLOR_INFO}╚═══════════════════════════════════════════════╝${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}╭───────────────────────────────────────────────╮${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_ACCENT}1.${COLOR_RESET} ${COLOR_TEXT}Validate Deploy${COLOR_RESET}                            ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}     ${COLOR_MUTED}› Valida que los componentes desplieguen${COLOR_RESET}  ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_ACCENT}2.${COLOR_RESET} ${COLOR_TEXT}Code Analyzer (PMD)${COLOR_RESET}                        ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}     ${COLOR_MUTED}› Analiza calidad del código Apex/LWC${COLOR_RESET}    ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_SUCCESS}0. Volver${COLOR_RESET}                                    ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}╰───────────────────────────────────────────────╯${COLOR_RESET}"
+                        echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Seleccione una opción:${COLOR_RESET} "
+                        read opcion_validar_analizar
+
+                        case $opcion_validar_analizar in
+                            0)
+                                continue
+                            ;;
+                            1) # Validate Deploy - Submenú tipo de validación
+                        echo -e "${COLOR_INFO}${COLOR_BOLD}"
+                        echo "╭───────────────────────────────────────────────╮"
+                        echo "│      Tipo de Validación - Metadata CORE       │"
+                        echo "╰───────────────────────────────────────────────╯"
+                        echo -e "${COLOR_INFO}╭───────────────────────────────────────────────╮${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_ACCENT}1.${COLOR_RESET} ${COLOR_TEXT}Rápida (Sandbox)${COLOR_RESET}                          ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}     ${COLOR_MUTED}Sin tests - Validación rápida${COLOR_RESET}             ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_ACCENT}2.${COLOR_RESET} ${COLOR_TEXT}Exhaustiva (Producción)${COLOR_RESET}                   ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}     ${COLOR_MUTED}Con tests - Listo para PROD${COLOR_RESET}               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_ACCENT}3.${COLOR_RESET} ${COLOR_TEXT}Con Clases Apex Específicas${COLOR_RESET}               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}     ${COLOR_MUTED}Ejecuta tests específicos${COLOR_RESET}                 ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_SUCCESS}0. Volver${COLOR_RESET}                                    ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                        echo -e "${COLOR_INFO}╰───────────────────────────────────────────────╯${COLOR_RESET}"
                         echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Seleccione tipo de validación:${COLOR_RESET} "
                         read tipo_validacion
 
@@ -2867,14 +2888,14 @@ do
                                 LOG_FILE="${SCRIPT_DIR}/log_validated_deployment"
                                 ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo "  CORE DEPLOYMENT LOG - VALIDATE (Quick/Dry-Run)"
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
                                     echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
                                     echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
                                     echo "  Modo:      Dry-Run (sin tests)"
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo ""
                                 } > "$LOG_FILE"
                                 sf deploy metadata --dry-run --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} --ignore-conflicts 2>&1 | tee -a "$LOG_FILE"
@@ -2904,14 +2925,14 @@ do
                                 LOG_FILE="${SCRIPT_DIR}/log_validated_deployment"
                                 ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo "  CORE DEPLOYMENT LOG - VALIDATE (Exhaustive/Production)"
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
                                     echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
                                     echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
                                     echo "  Modo:      Validate con RunLocalTests"
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo ""
                                 } > "$LOG_FILE"
                                 sf project deploy validate --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} 2>&1 | tee -a "$LOG_FILE"
@@ -2924,9 +2945,9 @@ do
                                 # Array para almacenar las clases de test
                                 test_classes_array=()
 
-                                echo -e "\n${COLOR_INFO}${COLOR_BOLD}╔═══════════════════════════════════════════════════╗"
-                                echo -e "║      Configuración de Clases Apex de Test        ║"
-                                echo -e "╚═══════════════════════════════════════════════════╝${COLOR_RESET}"
+                                echo -e "\n${COLOR_INFO}${COLOR_BOLD}╭───────────────────────────────────────────────────╮"
+                                echo -e "│      Configuración de Clases Apex de Test        │"
+                                echo -e "╰───────────────────────────────────────────────────╯${COLOR_RESET}"
                                 echo -e "${COLOR_MUTED}Ingrese las clases de test una por una${COLOR_RESET}\n"
 
                                 # Bucle para agregar clases
@@ -3006,15 +3027,15 @@ do
                                 LOG_FILE="${SCRIPT_DIR}/log_validated_deployment"
                                 ORG_NAME=$(get_org_name "$ORG_DESTINO")
                                 {
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo "  CORE DEPLOYMENT LOG - VALIDATE (Specified Tests)"
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
                                     echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
                                     echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
                                     echo "  Modo:      RunSpecifiedTests"
                                     echo "  Tests:     ${test_classes}"
-                                    echo "════════════════════════════════════════════════════════════════"
+                                    echo "────────────────────────────────────────────────────────────────"
                                     echo ""
                                 } > "$LOG_FILE"
                                 sf project deploy validate --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --test-level RunSpecifiedTests --tests ${test_classes} --target-org ${ORG_DESTINO} 2>&1 | tee -a "$LOG_FILE"
@@ -3022,6 +3043,172 @@ do
                                 echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
                                 echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                                 read foo
+                            ;;
+                            *)
+                                echo "OPCIÓN INVÁLIDA..."
+                                sleep 1
+                            ;;
+                        esac
+                            ;;
+                            2) # Code Analyzer (PMD)
+                                clear
+                                echo ""
+                                echo -e "${COLOR_INFO}${COLOR_BOLD}"
+                                echo -e "${COLOR_INFO}╭───────────────────────────────────────────────╮${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}       Code Analyzer - PMD Salesforce          ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}╰───────────────────────────────────────────────╯${COLOR_RESET}"
+                                echo ""
+                                echo -e "${COLOR_MUTED}  Proyecto: ${PROJECT_ROOT}${COLOR_RESET}"
+                                echo ""
+                                echo -e "${COLOR_INFO}╭───────────────────────────────────────────────╮${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_ACCENT}1.${COLOR_RESET} ${COLOR_TEXT}Por carpeta${COLOR_RESET}                               ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}     ${COLOR_MUTED}› Escanea todos los archivos de una carpeta${COLOR_RESET} ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_ACCENT}2.${COLOR_RESET} ${COLOR_TEXT}Por manifest (package.xml)${COLOR_RESET}                ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}     ${COLOR_MUTED}› Solo los componentes del manifest activo${COLOR_RESET}  ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}  ${COLOR_SUCCESS}0. Volver${COLOR_RESET}                                    ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}│${COLOR_RESET}                                               ${COLOR_INFO}│${COLOR_RESET}"
+                                echo -e "${COLOR_INFO}╰───────────────────────────────────────────────╯${COLOR_RESET}"
+                                echo -e "\n${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Seleccione una opción:${COLOR_RESET} "
+                                read opcion_scan_type
+
+                                case $opcion_scan_type in
+                                    0)
+                                        continue
+                                    ;;
+                                    1|2)
+                                        if [ "$opcion_scan_type" = "1" ]; then
+                                            echo ""
+                                            echo -e "${COLOR_PRIMARY}→${COLOR_RESET} ${COLOR_TEXT}Carpeta a escanear (Enter = force-app/main/default):${COLOR_RESET}"
+                                            echo -e "${COLOR_MUTED}  Ej: force-app/main/default/classes  ó  force-app/main/default/lwc${COLOR_RESET}"
+                                            read scan_target
+                                            if [ -z "$scan_target" ]; then
+                                                scan_target="force-app/main/default"
+                                            fi
+                                            SCAN_TARGET_PATH="${PROJECT_ROOT}/${scan_target}"
+                                            if [ ! -e "$SCAN_TARGET_PATH" ]; then
+                                                echo -e "${COLOR_ERROR}✗ No se encontró: ${SCAN_TARGET_PATH}${COLOR_RESET}"
+                                                echo -e "* ENTER PARA VOLVER AL MENÚ *"
+                                                read foo
+                                                continue
+                                            fi
+                                            SCAN_LABEL="Carpeta: ${scan_target}"
+                                        else
+                                            PKG_FILE="${PROJECT_ROOT}/${MANIFEST_DIR}/${XML_COMPONENTES}"
+                                            if [ ! -f "$PKG_FILE" ]; then
+                                                echo -e "${COLOR_ERROR}✗ No se encontró: ${PKG_FILE}${COLOR_RESET}"
+                                                echo -e "* ENTER PARA VOLVER AL MENÚ *"
+                                                read foo
+                                                continue
+                                            fi
+                                            echo ""
+                                            echo -e "${COLOR_INFO}  Leyendo manifest: ${PKG_FILE}${COLOR_RESET}"
+                                            scan_files=$(PKG_XML="$PKG_FILE" PROJECT_DIR="$PROJECT_ROOT" python3 <<'PYEOF'
+import xml.etree.ElementTree as ET, os, sys
+manifest = os.environ['PKG_XML']
+project  = os.environ['PROJECT_DIR']
+type_map = {
+    'ApexClass':               ('force-app/main/default/classes',  '.cls'),
+    'ApexTrigger':             ('force-app/main/default/triggers', '.trigger'),
+    'LightningComponentBundle':('force-app/main/default/lwc',      ''),
+    'AuraDefinitionBundle':    ('force-app/main/default/aura',     ''),
+}
+try:
+    tree = ET.parse(manifest)
+    root = tree.getroot()
+    ns_uri = root.tag.split('}')[0].lstrip('{') if '}' in root.tag else ''
+    def tag(n): return f'{{{ns_uri}}}{n}' if ns_uri else n
+    targets = []
+    for types_el in root.iter(tag('types')):
+        name_el = types_el.find(tag('name'))
+        if name_el is None: continue
+        type_name = name_el.text
+        if type_name not in type_map: continue
+        folder, ext = type_map[type_name]
+        for m in types_el.findall(tag('members')):
+            if m.text == '*': continue
+            path = os.path.join(project, folder, f'{m.text}{ext}' if ext else m.text)
+            if os.path.exists(path):
+                targets.append(path)
+    print(','.join(targets))
+except Exception:
+    sys.exit(1)
+PYEOF
+)
+                                            if [ -z "$scan_files" ]; then
+                                                echo -e "${COLOR_WARNING}  No se encontraron componentes escaneables en el manifest.${COLOR_RESET}"
+                                                echo -e "${COLOR_MUTED}  (Solo se escanean: ApexClass, ApexTrigger, LWC, Aura)${COLOR_RESET}"
+                                                echo -e "* ENTER PARA VOLVER AL MENÚ *"
+                                                read foo
+                                                continue
+                                            fi
+                                            file_count=$(echo "$scan_files" | tr ',' '\n' | wc -l | tr -d ' ')
+                                            echo -e "${COLOR_SUCCESS}  ✓ ${file_count} componente(s) encontrado(s)${COLOR_RESET}"
+                                            SCAN_TARGET_PATH="$scan_files"
+                                            SCAN_LABEL="Manifest: ${MANIFEST_DIR}/${XML_COMPONENTES} (${file_count} componentes)"
+                                        fi
+
+                                        # Verificar que el plugin v5 esté instalado
+                                        if ! sf code-analyzer run --help &>/dev/null; then
+                                            echo ""
+                                            echo -e "${COLOR_ERROR}  ✗ Plugin de Code Analyzer no instalado.${COLOR_RESET}"
+                                            echo -e "${COLOR_WARNING}  Ejecuta el siguiente comando para instalarlo:${COLOR_RESET}"
+                                            echo ""
+                                            echo -e "  ${COLOR_ACCENT}sf plugins install @salesforce/plugin-code-analyzer${COLOR_RESET}"
+                                            echo ""
+                                            echo -e "${COLOR_MUTED}  (Tarda ~2 min. Solo se instala una vez)${COLOR_RESET}"
+                                            echo -e "\n* ENTER PARA VOLVER AL MENÚ *"
+                                            read foo
+                                            continue
+                                        fi
+
+                                        LOG_FILE="${SCRIPT_DIR}/log_code_analyzer_$(date '+%Y%m%d_%H%M%S').txt"
+                                        echo ""
+                                        echo -e "${COLOR_INFO}  Iniciando análisis con PMD...${COLOR_RESET}"
+                                        echo -e "${COLOR_MUTED}  ${SCAN_LABEL}${COLOR_RESET}"
+                                        echo ""
+                                        cd "$PROJECT_ROOT"
+                                        {
+                                            echo "────────────────────────────────────────────────────────────────"
+                                            echo "  CODE ANALYZER LOG - PMD"
+                                            echo "────────────────────────────────────────────────────────────────"
+                                            echo "  Fecha:    $(date '+%Y-%m-%d %H:%M:%S')"
+                                            echo "  Objetivo: ${SCAN_LABEL}"
+                                            echo "────────────────────────────────────────────────────────────────"
+                                            echo ""
+                                        } > "$LOG_FILE"
+                                        sf code-analyzer run -t "$SCAN_TARGET_PATH" -v table 2>&1 | tee -a "$LOG_FILE"
+                                        cd "$SCRIPT_DIR"
+
+                                        sev12_count=$(grep -v '─\|─\|Severity\|No violations\|CODE ANALYZER\|Fecha\|Objetivo' "$LOG_FILE" | grep -cE '[[:space:]][12][[:space:]]' 2>/dev/null)
+                                        sev12_count=${sev12_count:-0}
+
+                                        echo -e "\n${COLOR_SUCCESS}Log guardado en: ${LOG_FILE}${COLOR_RESET}"
+
+                                        if [ "${sev12_count}" -gt 0 ] 2>/dev/null; then
+                                            echo ""
+                                            _bd=$(printf '─%.0s' {1..58})
+                                            _la=$(printf "│%-58s│" "  ATENCION: Codigo con violaciones criticas")
+                                            _lb=$(printf "│  Severidad 1-2: %-3s encontrada(s)%-24s│" "${sev12_count}" "")
+                                            _lc=$(printf "│%-58s│" "  Reportar al desarrollador antes de mergear el PR")
+                                            echo -e "${COLOR_ERROR}╭${_bd}╮"
+                                            echo -e "${_la}"
+                                            echo -e "├${_bd}┤"
+                                            echo -e "${_lb}"
+                                            echo -e "${_lc}"
+                                            echo -e "╰${_bd}╯${COLOR_RESET}"
+                                        fi
+
+                                        echo -e "\n* ENTER PARA VOLVER AL MENÚ * \n"
+                                        read foo
+                                    ;;
+                                    *)
+                                        echo "OPCIÓN INVÁLIDA..."
+                                        sleep 1
+                                    ;;
+                                esac
                             ;;
                             *)
                                 echo "OPCIÓN INVÁLIDA..."
@@ -3057,14 +3244,14 @@ do
                         LOG_FILE="${SCRIPT_DIR}/log_validated_deployment"
                         ORG_NAME=$(get_org_name "$ORG_DESTINO")
                         {
-                            echo "════════════════════════════════════════════════════════════════"
+                            echo "────────────────────────────────────────────────────────────────"
                             echo "  CORE DEPLOYMENT LOG - DEPLOY"
-                            echo "════════════════════════════════════════════════════════════════"
+                            echo "────────────────────────────────────────────────────────────────"
                             echo "  Fecha:     $(date '+%Y-%m-%d %H:%M:%S')"
                             echo "  Org:       ${ORG_NAME} (${ORG_DESTINO})"
                             echo "  Manifest:  ${MANIFEST_DIR}/${XML_COMPONENTES}"
                             echo "  Modo:      Deploy real"
-                            echo "════════════════════════════════════════════════════════════════"
+                            echo "────────────────────────────────────────────────────────────────"
                             echo ""
                         } > "$LOG_FILE"
                         sf deploy metadata --manifest ${MANIFEST_DIR}/${XML_COMPONENTES} --target-org ${ORG_DESTINO} --ignore-conflicts 2>&1 | tee -a "$LOG_FILE"
@@ -3240,14 +3427,14 @@ do
                         echo ""
                         if [ -s "$output_file" ]; then
                             TOTAL_VLOCITY_EXPORT=$(grep -c "." "$output_file" 2>/dev/null || echo "0")
-                            echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
-                            echo -e "║  ✓  Export Vlocity completado                             ║"
-                            echo -e "╠═══════════════════════════════════════════════════════════╣"
-                            _l1=$(printf "║  Archivo:      %-43s║" "${output_file##*/Users/jcobandor84/Documents/NESPON/SURA/CHILE/suratech-salesforce-app/}")
-                            _l2=$(printf "║  Componentes:  %-43s║" "${TOTAL_VLOCITY_EXPORT} líneas exportadas")
+                            echo -e "${COLOR_SUCCESS}╭───────────────────────────────────────────────────────────╮"
+                            echo -e "│  ✓  Export Vlocity completado                             │"
+                            echo -e "├───────────────────────────────────────────────────────────┤"
+                            _l1=$(printf "│  Archivo:      %-43s│" "${output_file##*/Users/jcobandor84/Documents/NESPON/SURA/CHILE/suratech-salesforce-app/}")
+                            _l2=$(printf "│  Componentes:  %-43s│" "${TOTAL_VLOCITY_EXPORT} líneas exportadas")
                             echo -e "${_l1}"
                             echo -e "${_l2}"
-                            echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+                            echo -e "╰───────────────────────────────────────────────────────────╯${COLOR_RESET}"
                             echo ""
                             echo -e "${COLOR_MUTED}Primeros componentes:${COLOR_RESET}"
                             echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
