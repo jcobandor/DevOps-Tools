@@ -282,12 +282,14 @@ $TIPOS_METADATA
     <version>65.0</version>
 </Package>
 EOF
-                    echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗${COLOR_RESET}"
-                    echo -e "${COLOR_SUCCESS}║  ✓  package.xml actualizado correctamente                 ║${COLOR_RESET}"
-                    echo -e "${COLOR_SUCCESS}╠═══════════════════════════════════════════════════════════╣${COLOR_RESET}"
-                    echo -e "${COLOR_SUCCESS}║  Archivo:      ${COLOR_ACCENT}${MANIFEST_DIR}/package.xml${COLOR_SUCCESS}$(printf '%*s' $((27 - ${#MANIFEST_DIR})) '')║${COLOR_RESET}"
-                    echo -e "${COLOR_SUCCESS}║  Componentes:  ${COLOR_ACCENT}${TOTAL_MEMBERS} metadatos CORE${COLOR_SUCCESS}$(printf '%*s' $((27 - ${#TOTAL_MEMBERS})) '')║${COLOR_RESET}"
-                    echo -e "${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+                    _l1=$(printf "║  Archivo:      %-43s║" "${MANIFEST_DIR}/package.xml")
+                    _l2=$(printf "║  Componentes:  %-43s║" "${TOTAL_MEMBERS} metadatos CORE")
+                    echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
+                    echo -e "║  ✓  package.xml actualizado correctamente                 ║"
+                    echo -e "╠═══════════════════════════════════════════════════════════╣"
+                    echo -e "${_l1}"
+                    echo -e "${_l2}"
+                    echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
                 else
                     echo -e "${COLOR_WARNING}⚠ No se encontraron tipos de metadata para copiar${COLOR_RESET}"
                 fi
@@ -387,12 +389,14 @@ supportForceDeploy: true
 verbose: false
 deltaGeneration: false
 EOF
-                        echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}║  ✓  package.yaml actualizado correctamente                ║${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}╠═══════════════════════════════════════════════════════════╣${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}║  Archivo:      ${COLOR_ACCENT}${MANIFEST_DIR}/package.yaml${COLOR_SUCCESS}$(printf '%*s' $((26 - ${#MANIFEST_DIR})) '')║${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}║  Componentes:  ${COLOR_ACCENT}${TOTAL_VLOCITY} metadatos Vlocity${COLOR_SUCCESS}$(printf '%*s' $((24 - ${#TOTAL_VLOCITY})) '')║${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+                        _l1=$(printf "║  Archivo:      %-43s║" "${MANIFEST_DIR}/package.yaml")
+                        _l2=$(printf "║  Componentes:  %-43s║" "${TOTAL_VLOCITY} metadatos Vlocity")
+                        echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
+                        echo -e "║  ✓  package.yaml actualizado correctamente                ║"
+                        echo -e "╠═══════════════════════════════════════════════════════════╣"
+                        echo -e "${_l1}"
+                        echo -e "${_l2}"
+                        echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
                     else
                         echo -e "${COLOR_WARNING}⚠ No se encontraron componentes Vlocity para copiar${COLOR_RESET}"
                     fi
@@ -658,12 +662,14 @@ supportForceDeploy: true
 verbose: false
 deltaGeneration: false
 EOF
-                            echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}║  ✓  package.yaml actualizado correctamente                ║${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}╠═══════════════════════════════════════════════════════════╣${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}║  Archivo:      ${COLOR_ACCENT}${MANIFEST_DIR}/package.yaml${COLOR_SUCCESS}$(printf '%*s' $((26 - ${#MANIFEST_DIR})) '')║${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}║  Componentes:  ${COLOR_ACCENT}${TOTAL_VLOCITY} metadatos Vlocity${COLOR_SUCCESS}$(printf '%*s' $((24 - ${#TOTAL_VLOCITY})) '')║${COLOR_RESET}"
-                        echo -e "${COLOR_SUCCESS}╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+                            _l1=$(printf "║  Archivo:      %-43s║" "${MANIFEST_DIR}/package.yaml")
+                        _l2=$(printf "║  Componentes:  %-43s║" "${TOTAL_VLOCITY} metadatos Vlocity")
+                        echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
+                        echo -e "║  ✓  package.yaml actualizado correctamente                ║"
+                        echo -e "╠═══════════════════════════════════════════════════════════╣"
+                        echo -e "${_l1}"
+                        echo -e "${_l2}"
+                        echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
                         else
                             echo -e "${COLOR_WARNING}⚠ No se encontraron componentes Vlocity para copiar${COLOR_RESET}"
                         fi

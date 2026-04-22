@@ -3208,7 +3208,7 @@ do
                         echo -e "INICIA PROCESO EXPORTAR LISTA COMPONENTES CORE\n"
                         echo -e "${COLOR_SUCCESS} En la carpeta SCRIPTS encontrara el archivo allMetadataCore.xml con el listado de todos los componentes...${COLOR_RESET}"
                         cd "$PROJECT_ROOT"
-                        sfdx force:source:manifest:create --from-org ${ORG_ORIGEN} -n allMetadataCore -d scripts
+                        sf project generate manifest --from-org ${ORG_ORIGEN} --name allMetadataCore --output-dir scripts
                         cd "$SCRIPT_DIR"
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
@@ -3232,10 +3232,33 @@ do
                             continue
                         fi
                         echo -e "INICIA PROCESO EXPORTAR LISTA COMPONENTES VLOCITY\n"
-                        echo -e "${COLOR_SUCCESS} En la raíz encontrará el archivo output.txt con todos los componentes...${COLOR_RESET}"
                         cd "$PROJECT_ROOT"
-                        vlocity -sfdx.username ${ORG_ORIGEN} packGetAllAvailableExports --nojob > output.txt
+                        output_file="${PROJECT_ROOT}/output.txt"
+                        echo -e "${COLOR_INFO}Consultando componentes Vlocity en ${ORG_ORIGEN}...${COLOR_RESET}"
+                        vlocity -sfdx.username ${ORG_ORIGEN} packGetAllAvailableExports --nojob > "$output_file" 2>&1
+                        grep -v "DeprecationWarning\|punycode\|Use \`node\|trace-deprecation" "$output_file" > "${output_file}.clean" 2>/dev/null && mv "${output_file}.clean" "$output_file"
+                        echo ""
+                        if [ -s "$output_file" ]; then
+                            TOTAL_VLOCITY_EXPORT=$(grep -c "." "$output_file" 2>/dev/null || echo "0")
+                            echo -e "${COLOR_SUCCESS}╔═══════════════════════════════════════════════════════════╗"
+                            echo -e "║  ✓  Export Vlocity completado                             ║"
+                            echo -e "╠═══════════════════════════════════════════════════════════╣"
+                            _l1=$(printf "║  Archivo:      %-43s║" "${output_file##*/Users/jcobandor84/Documents/NESPON/SURA/CHILE/suratech-salesforce-app/}")
+                            _l2=$(printf "║  Componentes:  %-43s║" "${TOTAL_VLOCITY_EXPORT} líneas exportadas")
+                            echo -e "${_l1}"
+                            echo -e "${_l2}"
+                            echo -e "╚═══════════════════════════════════════════════════════════╝${COLOR_RESET}"
+                            echo ""
+                            echo -e "${COLOR_MUTED}Primeros componentes:${COLOR_RESET}"
+                            echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
+                            head -20 "$output_file"
+                            echo -e "${COLOR_MUTED}─────────────────────────────────────────────────────────────${COLOR_RESET}"
+                        else
+                            echo -e "${COLOR_WARNING}⚠ No se generó contenido en output.txt${COLOR_RESET}"
+                            echo -e "${COLOR_MUTED}Es posible que la org no tenga componentes Vlocity disponibles.${COLOR_RESET}"
+                        fi
                         cd "$SCRIPT_DIR"
+                        echo ""
                         echo -e "* ENTER PARA VOLVER AL MENÚ * \n"
                         read foo
                     ;;
